@@ -49,7 +49,7 @@ function init()
         sy = 0,
         sxdef = 0,
         smoothing = 0.01,
-        scroll = 200,
+        scroll = 300,
     }
 
     farStars = {
@@ -88,6 +88,24 @@ end --sign
 function randomBetween(min, max)
     return min + math.random() * (max - min)
 end --randomBetween
+
+--FUNCTIONS
+function shootPlayer()
+    if btn(6) then
+        local newProjectile = table.copy(projectile)
+        if player.flip==1 then
+            newProjectile.x = player.x+player.w+8
+        else
+            newProjectile.x = player.x+8
+            newProjectile.speedx = -newProjectile.speedx
+        end
+        newProjectile.y = player.y+5
+        table.insert(projectiles, newProjectile)
+        player.movementState="shoot"
+        lastShot = time()
+
+    end
+end --shootProjectile
 
 --UPDATE
 function updatePlayer()
@@ -168,7 +186,6 @@ function animateFarStars()
     farScroll = worldMove
 end
 
-
 --ANIMATE
 function animatePlayer()
 
@@ -179,7 +196,7 @@ function animatePlayer()
     else 
         --default
         player.spriteId = 256
-        nearStars.scroll = 200
+        nearStars.scroll = 300
     end
 
     if player.speedX > 0.1 then
@@ -189,7 +206,7 @@ function animatePlayer()
     elseif player.speedX < -0.1 then
         --motor off
         player.spriteId = player.spriteId + 8
-        nearStars.scroll = 120
+        nearStars.scroll = 200
     end
 
     
@@ -243,12 +260,9 @@ end
 
 init()
 function TIC()
-    --if btnp(5) then
     cls()
     update()
     animate()
     draw()
-    printStars()
-    --end
 end
 
