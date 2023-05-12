@@ -37,9 +37,13 @@ function init()
         speedY = 0,
         w = 4,
         h = 2,
+        wpx = 25,
+        hpx = 12,
         accelerationX = 1,
         accelerationY = 1,
         invincibilityCounter = 0,
+        lastShot = 0,
+        projectileType = 1,
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -66,66 +70,73 @@ function init()
     farScroll = 0
     nearScroll = 0
 
-    projectile = {
+    projectile1 = {
         spriteId=352,
         x=0,
         y=0,
         speedx=4,
         w=1,
         h=1,
-        wpx=8,
-        hpx=8,
+        wpx = 3,
+        hpx = 1,
         timing=0,
         destroy=false,
         bind=0
     }
+    projectile2 = table.copy(projectile1)
+    projectile2.spriteId = 123
+    projectileBlueprint = {projectile1, projectile2}
     projectiles = {}
-    lastShot = 0
 
     -- INIT ENEMIES
-    enemy = {
-        spriteId=352,
-        defSprite=352,
+    enemy1 = {
+        spriteId=480,
+        defSprite=480,
         x=0,
         y=0,
-        speedx=1,
+        speedx=-1,
         speedy=0,
         w=2,
         h=2,
-        wpx=16,
-        hpx=16,
+        wpx = 8,
+        hpx = 8,
         flip = 0,
         alive=true,
+        lastShot = -5000,
     }
-    enemy2 = table.copy(enemy)
+    enemy2 = table.copy(enemy1)
     enemy2.spriteId = 354
     enemy2.defSprite = 354
-    enemy3 = table.copy(enemy)
+    enemy3 = table.copy(enemy1)
     enemy3.spriteId = 356
     enemy3.defSprite = 356
-    enemy4 = table.copy(enemy)
+    enemy4 = table.copy(enemy1)
     enemy4.spriteId = 358
     enemy4.defSprite = 358
-    enemy5 = table.copy(enemy)
+    enemy5 = table.copy(enemy1)
     enemy5.spriteId = 360
     enemy5.defSprite = 360
-    enemy5.lastShot = -5000
-    enemy.seenPlayer = 0
+
+    enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5}
 
     enemies={}
 
-    enemyProjectile = {
+    enemyProjectile1 = {
         spriteId=271,
         x=0,
         y=0,
         speedx=2,
+        speedy=0,
         w=1,
         h=1,
-        wpx=8,
-        hpx=8,
+        wpx = 3,
+        hpx = 3,
         destroy=false,
-        flip=false
+        flip=false,
     }
+    enemyProjectile2 = table.copy(enemyProjectile1)
+    enemyProjectile2.spriteId = 123
+    enemyProjectileBlueprints = {enemyProjectile1, enemyProjectile2}
 
     enemyProjectiles={}
 
@@ -152,17 +163,67 @@ end --sign
 function randomBetween(min, max)
     return min + math.random() * (max - min)
 end --randomBetween
+function collisionObject(obj1,obj2)
+    local obj1l = obj1.x
+    local obj1r = obj1.x + (obj1.wpx)
+    local obj1u = obj1.y 
+    local obj1d = obj1.y + (obj1.hpx)
+    
+    local obj2l = obj2.x
+    local obj2r = obj2.x + (obj2.wpx)
+    local obj2u = obj2.y 
+    local obj2d = obj2.y + (obj2.hpx)
+
+    if (obj1r > obj2l) and
+    (obj1l < obj2r) and
+    (obj1u < obj2d) and
+    (obj1d > obj2u) then
+        return true
+    else
+        return false
+    end
+
+end --collisionObject
 
 --FUNCTIONS
-function shootPlayer()
-    if btn(6) and time()-lastShot > 50 then
-        local newProjectile = table.copy(projectile)
+function shootPlayer(type)
+    if btn(6) and time()-player.lastShot > 50 then
+        local newProjectile = table.copy(projectileBlueprint[type])
         newProjectile.x = player.x+player.w*8-4
         newProjectile.y = player.y+6
         table.insert(projectiles, newProjectile)
-        lastShot = time()
+        player.lastShot = time()
     end
 end --shootProjectile
+function harmPlayer()
+    if not player.invincibility then
+        -- player damage
+        GameState.lives = GameState.lives - 1
+        player.invincibilityCounter = time()
+        player.invincibility = true
+        player.x = player.startx
+        player.y = player.starty
+        if GameState.lives == 0 then
+            GameState.tries = GameState.tries+1
+        end
+    end
+end --harmPlayer
+function spawnEnemy(x,y,type)
+    newEnemy = table.copy(enemyBlueprints[type])
+    newEnemy.x = x
+    newEnemy.y = y
+    table.insert(enemies, newEnemy)
+end --spawnEnemy
+function removeDeadEnemies()
+    local i = 1
+    while i <= #enemies do
+      if enemies[i] == nil then
+        table.remove(enemies, i)
+      else
+        i = i + 1
+      end
+    end
+end --removeDeadEnemies
 
 --UPDATE
 function updatePlayer()
@@ -224,7 +285,7 @@ function updatePlayer()
 end --updatePlayer
 function updateProjectiles()
     for i, projectile in ipairs(projectiles) do
-        if (time()-lastShot)>800 then
+        if (time()-player.lastShot)>800 then
             projectile.destroy=true
         end
         --[[
@@ -241,30 +302,68 @@ function updateProjectiles()
                 projectile.destroy=true
             end
         end
+        ]]
         --check collision enemy
         
         for i, enemy in ipairs(enemies) do
-            if collisionObject(projectile,enemy) and not enemy.bound then
+            if collisionObject(projectile,enemy) then
                 projectile.destroy=true
-                projectile.bind = i
-                enemy.spriteId = enemy.spriteId + 32
-                enemy.bound = true
+                enemies[i] = nil
+                trace("collided")
+                --enemy.spriteId = enemy.spriteId + 32
                 break
             end
-        end]]
+        end
         --update position
         projectile.x = projectile.x+projectile.speedx
         --destroy projectiles
         if projectile.destroy then
             projectile=nil
-            table.remove(projectiles)
+            table.remove(projectiles, projectile)
         end
     end
 end
 function updateEnemyProjectiles()
 end
 function updateEnemies()
-end
+    for i, enemy in ipairs(enemies) do
+        -- check map collisions
+        --[[
+        if enemy.speedy>0 then
+            if collisionMap(enemy,"down",0) then
+                enemy.speedy=0
+                enemy.y=math.floor((enemy.y + enemy.h) / 8) * 8
+            end
+        elseif enemy.speedy<0 then
+            if collisionMap(enemy,"up",1) then
+                enemy.speedy=0
+            end
+        end
+        -- left/rigth COLLISION
+        if enemy.speedx<0 then
+            if collisionMap(enemy,"left",1) then
+                enemy.speedx=-enemy.speedx
+            end
+        elseif enemy.speedx>0 then
+            if collisionMap(enemy,"right",1) then
+                enemy.speedx=-enemy.speedx
+            end
+        end ]]
+
+        --damage player
+        if collisionObject(player,enemy) and not enemy.bound then
+            harmPlayer()
+        end
+
+        enemy.x = enemy.x+enemy.speedx
+        enemy.y = enemy.y+enemy.speedy
+        if enemy.y < -127 then enemy.y = -126 end -- update to remove them off screen
+        if enemy.y > 112 then enemy.y = 112 end -- update to remove them off screen
+
+        --remove dead enemies
+        removeDeadEnemies()
+    end
+end --updateEnemies
 function animateNearStars()
     --240x136
     local newCam=math.ceil(interpolate(nearStars.sx,nearStars.sx+nearStars.scroll,nearStars.smoothing))
@@ -310,6 +409,11 @@ end
 function drawPlayer()
     spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
 end
+function drawEnemies()
+    for i, enemy in ipairs(enemies) do
+        spr(enemy.spriteId, enemy.x, enemy.y, 0, 1, enemy.flip, 0, enemy.w, enemy.h)
+    end
+end --drawEnemies
 function drawFarStars()
     local cmr = (farStars.sx%8)-8
     map(farScroll,farStars.y,33,20,-cmr,0,0)
@@ -340,7 +444,7 @@ end
 
 
 function update()
-    shootPlayer()
+    shootPlayer(player.projectileType)
     updatePlayer()
     updateProjectiles()
     updateEnemyProjectiles()
@@ -355,11 +459,13 @@ end
 function draw()
     drawFarStars()
     drawNearStars()
+    drawEnemies()
     drawPlayer()
     drawProjectiles()
 end
 
 init()
+spawnEnemy(235,72,1)
 function TIC()
     cls()
     update()
