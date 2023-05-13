@@ -30,20 +30,21 @@ GameState = {
 
 function init()
     player = {
-        spriteId = 256,
+        spriteId = 257,
         x = 5,
         y = 72,
         speedX = 0,
         speedY = 0,
-        w = 4,
+        w = 3,
         h = 2,
-        wpx = 25,
+        wpx = 24,
         hpx = 12,
         accelerationX = 1,
         accelerationY = 1,
         invincibilityCounter = 0,
         lastShot = 0,
         projectileType = 1,
+        engine = 256
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -71,7 +72,7 @@ function init()
     nearScroll = 0
 
     projectile1 = {
-        spriteId=352,
+        spriteId=271,
         x=0,
         y=0,
         speedx=4,
@@ -98,31 +99,49 @@ function init()
         speedy=0,
         w=2,
         h=2,
-        wpx = 8,
-        hpx = 8,
+        wpx = 13,
+        hpx = 16,
         flip = 0,
+        animationTiming = 0,
         alive=true,
+        beingDestroyed = "no",
         lastShot = -5000,
+        hitPoints = 10,
     }
     enemy2 = table.copy(enemy1)
-    enemy2.spriteId = 354
-    enemy2.defSprite = 354
+    enemy2.spriteId = 482
+    enemy2.defSprite = 482
+    enemy2.wpx = 13
+    enemy2.hpx = 14
     enemy3 = table.copy(enemy1)
-    enemy3.spriteId = 356
-    enemy3.defSprite = 356
+    enemy3.spriteId = 484
+    enemy3.defSprite = 484
+    enemy3.wpx = 12
+    enemy3.hpx = 15
     enemy4 = table.copy(enemy1)
-    enemy4.spriteId = 358
-    enemy4.defSprite = 358
+    enemy4.spriteId = 486
+    enemy4.defSprite = 486
+    enemy4.wpx = 16
+    enemy4.hpx = 16
     enemy5 = table.copy(enemy1)
-    enemy5.spriteId = 360
-    enemy5.defSprite = 360
+    enemy5.spriteId = 488
+    enemy5.defSprite = 488
+    enemy5.wpx = 16
+    enemy5.hpx = 13
+    enemy6 = table.copy(enemy1)
+    enemy6.spriteId = 460
+    enemy6.defSprite = 460
+    enemy6.w = 4
+    enemy6.h = 4
+    enemy6.wpx = 32
+    enemy6.hpx = 32
 
-    enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5}
+    enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
     enemies={}
 
     enemyProjectile1 = {
-        spriteId=271,
+        spriteId=287,
         x=0,
         y=0,
         speedx=2,
@@ -214,16 +233,7 @@ function spawnEnemy(x,y,type)
     newEnemy.y = y
     table.insert(enemies, newEnemy)
 end --spawnEnemy
-function removeDeadEnemies()
-    local i = 1
-    while i <= #enemies do
-      if enemies[i] == nil then
-        table.remove(enemies, i)
-      else
-        i = i + 1
-      end
-    end
-end --removeDeadEnemies
+
 
 --UPDATE
 function updatePlayer()
@@ -308,8 +318,10 @@ function updateProjectiles()
         for i, enemy in ipairs(enemies) do
             if collisionObject(projectile,enemy) then
                 projectile.destroy=true
-                enemies[i] = nil
-                trace("collided")
+                enemies[i].hitPoints = enemies[i].hitPoints - 1
+                if enemies[i].hitPoints <= 0 then 
+                    enemies[i].alive = false
+                end
                 --enemy.spriteId = enemy.spriteId + 32
                 break
             end
@@ -318,13 +330,13 @@ function updateProjectiles()
         projectile.x = projectile.x+projectile.speedx
         --destroy projectiles
         if projectile.destroy then
-            projectile=nil
-            table.remove(projectiles, projectile)
+            table.remove(projectiles, i)  -- Remove the projectile at index 'i'
+            break  -- Exit the loop after removing the projectile
         end
     end
-end
+end --updateProjectiles
 function updateEnemyProjectiles()
-end
+end --updateEnemyProjectiles
 function updateEnemies()
     for i, enemy in ipairs(enemies) do
         -- check map collisions
@@ -355,15 +367,54 @@ function updateEnemies()
             harmPlayer()
         end
 
+        --kill enemy
+        if not enemy.alive then
+            if enemy.beingDestroyed == "no" then
+                enemy.beingDestroyed = "yes"
+            end
+
+            if enemy.beingDestroyed == "done" then
+                table.remove(enemies, i)
+            elseif enemy.beingDestroyed == "yes" then
+                animateDeadEnemies(i)
+            end
+        end
+
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
         if enemy.y < -127 then enemy.y = -126 end -- update to remove them off screen
         if enemy.y > 112 then enemy.y = 112 end -- update to remove them off screen
 
-        --remove dead enemies
-        removeDeadEnemies()
     end
 end --updateEnemies
+
+
+--ANIMATE
+function animatePlayer()
+
+    if player.speedY < -0.1 then
+        player.spriteId = 321
+    elseif player.speedY > 0.1 then
+        player.spriteId = 289
+    else 
+        --default
+        player.spriteId = 257
+        player.engine = 256
+        nearStars.scroll = 300
+    end
+
+    if player.speedX > 0.1 then
+        --fast
+        player.engine = 272
+        nearStars.scroll = 400
+    elseif player.speedX < -0.1 then
+        --motor off
+        player.engine = 288
+        nearStars.scroll = 200
+    end
+
+    
+end
 function animateNearStars()
     --240x136
     local newCam=math.ceil(interpolate(nearStars.sx,nearStars.sx+nearStars.scroll,nearStars.smoothing))
@@ -378,36 +429,22 @@ function animateFarStars()
     farStars.sx = newCam
     farScroll = worldMove
 end
-
---ANIMATE
-function animatePlayer()
-
-    if player.speedY < -0.1 then
-        player.spriteId = 320
-    elseif player.speedY > 0.1 then
-        player.spriteId = 288
-    else 
-        --default
-        player.spriteId = 256
-        nearStars.scroll = 300
+function animateDeadEnemies(i)
+    if (time()/1000)-enemies[i].animationTiming>0.05 then
+        enemies[i].animationTiming=(time()/1000)
+        enemies[i].spriteId=enemies[i].spriteId-32
+        if enemies[i].spriteId<=(enemies[i].defSprite-128) then
+            enemies[i].spriteId = (enemies[i].defSprite-128)
+            enemies[i].beingDestroyed = "done"
+        end
     end
-
-    if player.speedX > 0.1 then
-        --fast
-        player.spriteId = player.spriteId + 4
-        nearStars.scroll = 400
-    elseif player.speedX < -0.1 then
-        --motor off
-        player.spriteId = player.spriteId + 8
-        nearStars.scroll = 200
-    end
-
-    
+    trace(enemies[i].spriteId)
 end
 
 --DRAW
 function drawPlayer()
     spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
+    spr(player.engine,player.x-2,player.y+3,0,1,player.flip,player.rotate,1,1)
 end
 function drawEnemies()
     for i, enemy in ipairs(enemies) do
