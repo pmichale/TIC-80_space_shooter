@@ -43,8 +43,9 @@ function init()
         accelerationY = 1,
         invincibilityCounter = 0,
         lastShot = 0,
-        projectileType = 1,
-        engine = 256
+        projectileType = {1},
+        engine = 256,
+        pickup = 0,
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -72,10 +73,11 @@ function init()
     nearScroll = 0
 
     projectile1 = {
-        spriteId=271,
+        spriteId=287,
         x=0,
         y=0,
         speedx=4,
+        speedy=0,
         w=1,
         h=1,
         wpx = 3,
@@ -85,8 +87,12 @@ function init()
         bind=0
     }
     projectile2 = table.copy(projectile1)
-    projectile2.spriteId = 123
-    projectileBlueprint = {projectile1, projectile2}
+    projectile2.spriteId = 271
+    projectile2.speedy = -2
+    projectile3 = table.copy(projectile1)
+    projectile3.spriteId = 303
+    projectile3.speedy = 2
+    projectileBlueprint = {projectile1, projectile2, projectile3}
     projectiles = {}
 
     -- INIT ENEMIES
@@ -159,6 +165,24 @@ function init()
 
     enemyProjectiles={}
 
+    pickup1 = {
+        spriteId = 260,
+        type = 1,
+        x = 0,
+        y = 0,
+        w = 1,
+        h = 1,
+        wpx = 8,
+        hpx = 8,
+    }
+    pickup2 = table.copy(pickup1)
+    pickup2.type = 2
+    pickup2.spriteId = 261
+    pickup2.wpx = 7
+    pickup2.hpx = 7
+    pickupBlueprints = {pickup1, pickup2}
+    pickups={}
+
 end
 
 -- COMMON FUNCTIONS
@@ -205,15 +229,19 @@ function collisionObject(obj1,obj2)
 end --collisionObject
 
 --FUNCTIONS
-function shootPlayer(type)
-    if btn(6) and time()-player.lastShot > 50 then
-        local newProjectile = table.copy(projectileBlueprint[type])
-        newProjectile.x = player.x+player.w*8-4
-        newProjectile.y = player.y+6
-        table.insert(projectiles, newProjectile)
+function shootPlayer(types)
+    if btn(6) and time() - player.lastShot > 100 then
+        for i = 1, #types do
+            local type = types[i]
+            local newProjectile = table.copy(projectileBlueprint[type])
+            newProjectile.x = player.x + player.w * 8 - 4
+            newProjectile.y = player.y + 6
+            if types[i] == 2 then newProjectile.y=player.y + 4 end
+            table.insert(projectiles, newProjectile)
+        end
         player.lastShot = time()
     end
-end --shootProjectile
+end --shootPlayer
 function harmPlayer()
     if not player.invincibility then
         -- player damage
@@ -233,6 +261,12 @@ function spawnEnemy(x,y,type)
     newEnemy.y = y
     table.insert(enemies, newEnemy)
 end --spawnEnemy
+function dropPickup(x,y,type)
+    newPickup = table.copy(pickupBlueprints[type])
+    newPickup.x = x
+    newPickup.y = y
+    table.insert(pickups, newPickup)
+end --dropPickup
 
 
 --UPDATE
@@ -292,6 +326,8 @@ function updatePlayer()
         player.invincibility = false
     end
 
+    -- player pickups
+    if player.pickup == 2 then player.projectileType = {1, 2, 3} end
 end --updatePlayer
 function updateProjectiles()
     for i, projectile in ipairs(projectiles) do
@@ -328,6 +364,7 @@ function updateProjectiles()
         end
         --update position
         projectile.x = projectile.x+projectile.speedx
+        projectile.y = projectile.y+projectile.speedy
         --destroy projectiles
         if projectile.destroy then
             table.remove(projectiles, i)  -- Remove the projectile at index 'i'
@@ -374,6 +411,7 @@ function updateEnemies()
             end
 
             if enemy.beingDestroyed == "done" then
+                dropPickup(enemy.x,enemy.y,2)
                 table.remove(enemies, i)
             elseif enemy.beingDestroyed == "yes" then
                 animateDeadEnemies(i)
@@ -387,6 +425,14 @@ function updateEnemies()
 
     end
 end --updateEnemies
+function updatePickups()
+    for i, pickup in ipairs(pickups) do
+        if collisionObject(player, pickup) then
+            player.pickup = pickup.type
+            table.remove(pickups, i)
+        end
+    end
+end --updatePickups
 
 
 --ANIMATE
@@ -414,21 +460,21 @@ function animatePlayer()
     end
 
     
-end
+end --animatePlayer
 function animateNearStars()
     --240x136
     local newCam=math.ceil(interpolate(nearStars.sx,nearStars.sx+nearStars.scroll,nearStars.smoothing))
     local worldMove=newCam/8
     nearStars.sx = newCam
     nearScroll = worldMove
-end
+end --animateNearStars
 function animateFarStars()
     --240x136 
     local newCam=math.ceil(interpolate(farStars.sx,farStars.sx+farStars.scroll,farStars.smoothing))
     local worldMove=newCam/8
     farStars.sx = newCam
     farScroll = worldMove
-end
+end --animateFarStars
 function animateDeadEnemies(i)
     if (time()/1000)-enemies[i].animationTiming>0.05 then
         enemies[i].animationTiming=(time()/1000)
@@ -438,14 +484,15 @@ function animateDeadEnemies(i)
             enemies[i].beingDestroyed = "done"
         end
     end
-    trace(enemies[i].spriteId)
-end
+end --animateDeadEnemies
 
 --DRAW
 function drawPlayer()
+    --ship
     spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
+    --flame
     spr(player.engine,player.x-2,player.y+3,0,1,player.flip,player.rotate,1,1)
-end
+end --drawPlayer
 function drawEnemies()
     for i, enemy in ipairs(enemies) do
         spr(enemy.spriteId, enemy.x, enemy.y, 0, 1, enemy.flip, 0, enemy.w, enemy.h)
@@ -454,16 +501,42 @@ end --drawEnemies
 function drawFarStars()
     local cmr = (farStars.sx%8)-8
     map(farScroll,farStars.y,33,20,-cmr,0,0)
-end
+end --drawFarStars
 function drawNearStars()
     local cmr = (nearStars.sx%8)-8
     map(nearScroll,nearStars.y,33,20,-cmr,0,0)
-end
+end --drawNearStars
 function drawProjectiles()
     for i, projectile in ipairs(projectiles) do
         spr(projectile.spriteId,projectile.x,projectile.y,0,1,0,0,projectile.w,projectile.h)
     end
-end
+end --drawProjectiles
+function drawShield()
+    if player.pickup == 1 then
+        local x = player.x
+        local y = player.y
+        local w = player.wpx
+        local h = player.hpx
+        --shield
+        --top
+        line((x),(y-2),(x+w+2),(y-2),10)
+        line((x),(y-3),(x+w+2),(y-3),12)
+        line((x),(y-4),(x+w+2),(y-4),10)
+        --bottom
+        line((x),(y+h+1),(x+w+2),(y+h+1),10)
+        line((x),(y+h+2),(x+w+2),(y+h+2),12)
+        line((x),(y+h+3),(x+w+2),(y+h+3),10)
+        --front
+        line((x+w+1),(y-2),(x+w+1),(y+h+1),10)
+        line((x+w+2),(y-3),(x+w+2),(y+h+2),12)
+        line((x+w+3),(y-4),(x+w+3),(y+h+3),10)
+    end
+end --drawShield
+function drawPickups()
+    for i, pickup in ipairs(pickups) do
+        spr(pickup.spriteId,pickup.x,pickup.y,0,1,0,0,pickup.w,pickup.h)
+    end
+end --drawPickups
 
 function printPlayer()
     print("x: "..player.x,0,0,7)
@@ -486,6 +559,7 @@ function update()
     updateProjectiles()
     updateEnemyProjectiles()
     updateEnemies()
+    updatePickups()
 end
 
 function animate()
@@ -499,6 +573,8 @@ function draw()
     drawEnemies()
     drawPlayer()
     drawProjectiles()
+    drawShield()
+    drawPickups()
 end
 
 init()
