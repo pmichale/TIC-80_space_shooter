@@ -21,18 +21,26 @@ GameState = {
     character = "bub",
     maxLives = 3,
     lives = 3,
-    tries = 0,
     invincibilityDuration = 2000,
     score = 0,
     timeStarted = 0,
     readyToAdvance = 0,
 }
 
-function init()
+function init(level)
+    --GAMESTATE
+    if level == 92 then
+        GameState.score = 0
+    end
+    GameState.timeStarted = time()
+    GameState.level = level
+
     player = {
         spriteId = 257,
         x = 5,
         y = 72,
+        startx = 5,
+        starty = 72,
         speedX = 0,
         speedY = 0,
         w = 3,
@@ -46,6 +54,10 @@ function init()
         projectileType = {1},
         engine = 256,
         pickup = 0,
+        pickupTime = 0,
+        shield = false,
+        shieldTime = 0,
+        shieldTimeOut = 15000,
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -174,6 +186,8 @@ function init()
         h = 1,
         wpx = 8,
         hpx = 8,
+        timeDropped = 0,
+        timeOut = 4000,
     }
     pickup2 = table.copy(pickup1)
     pickup2.type = 2
@@ -243,7 +257,7 @@ function shootPlayer(types)
     end
 end --shootPlayer
 function harmPlayer()
-    if not player.invincibility then
+    if not player.invincibility and not player.shield then
         -- player damage
         GameState.lives = GameState.lives - 1
         player.invincibilityCounter = time()
@@ -251,7 +265,7 @@ function harmPlayer()
         player.x = player.startx
         player.y = player.starty
         if GameState.lives == 0 then
-            GameState.tries = GameState.tries+1
+            init(92)
         end
     end
 end --harmPlayer
@@ -265,6 +279,7 @@ function dropPickup(x,y,type)
     newPickup = table.copy(pickupBlueprints[type])
     newPickup.x = x
     newPickup.y = y
+    newPickup.timeDropped = time()
     table.insert(pickups, newPickup)
 end --dropPickup
 
@@ -327,7 +342,18 @@ function updatePlayer()
     end
 
     -- player pickups
-    if player.pickup == 2 then player.projectileType = {1, 2, 3} end
+    if player.pickup == 2 then
+        player.projectileType = {1, 2, 3}
+    else
+        player.projectileType = {1}
+    end
+    if player.pickup == 1 then
+        player.shield = true
+        player.shieldTime = time()
+        player.pickup = 0
+    end
+    if time()-player.pickupTime > 15000 then player.pickup = 0 end
+    if time()-player.shieldTime > player.shieldTimeOut then player.shield = false end
 end --updatePlayer
 function updateProjectiles()
     for i, projectile in ipairs(projectiles) do
@@ -400,7 +426,7 @@ function updateEnemies()
         end ]]
 
         --damage player
-        if collisionObject(player,enemy) and not enemy.bound then
+        if collisionObject(player,enemy) then
             harmPlayer()
         end
 
@@ -411,7 +437,7 @@ function updateEnemies()
             end
 
             if enemy.beingDestroyed == "done" then
-                dropPickup(enemy.x,enemy.y,2)
+                dropPickup(enemy.x,enemy.y,1)
                 table.remove(enemies, i)
             elseif enemy.beingDestroyed == "yes" then
                 animateDeadEnemies(i)
@@ -429,6 +455,10 @@ function updatePickups()
     for i, pickup in ipairs(pickups) do
         if collisionObject(player, pickup) then
             player.pickup = pickup.type
+            player.pickupTime = time()
+            table.remove(pickups, i)
+        end
+        if time() - pickup.timeDropped > pickup.timeOut then
             table.remove(pickups, i)
         end
     end
@@ -488,10 +518,19 @@ end --animateDeadEnemies
 
 --DRAW
 function drawPlayer()
-    --ship
-    spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
-    --flame
-    spr(player.engine,player.x-2,player.y+3,0,1,player.flip,player.rotate,1,1)
+    if player.invincibility then
+        if time() % 40 < 5 then
+            --ship
+            spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
+            --flame
+            spr(player.engine,player.x-2,player.y+3,0,1,player.flip,player.rotate,1,1)
+        end
+    else
+        --ship
+        spr(player.spriteId,player.x,player.y,0,1,player.flip,player.rotate,player.w,player.h)
+        --flame
+        spr(player.engine,player.x-2,player.y+3,0,1,player.flip,player.rotate,1,1)
+    end
 end --drawPlayer
 function drawEnemies()
     for i, enemy in ipairs(enemies) do
@@ -512,31 +551,84 @@ function drawProjectiles()
     end
 end --drawProjectiles
 function drawShield()
-    if player.pickup == 1 then
-        local x = player.x
-        local y = player.y
-        local w = player.wpx
-        local h = player.hpx
+    if player.shield then
         --shield
-        --top
-        line((x),(y-2),(x+w+2),(y-2),10)
-        line((x),(y-3),(x+w+2),(y-3),12)
-        line((x),(y-4),(x+w+2),(y-4),10)
-        --bottom
-        line((x),(y+h+1),(x+w+2),(y+h+1),10)
-        line((x),(y+h+2),(x+w+2),(y+h+2),12)
-        line((x),(y+h+3),(x+w+2),(y+h+3),10)
-        --front
-        line((x+w+1),(y-2),(x+w+1),(y+h+1),10)
-        line((x+w+2),(y-3),(x+w+2),(y+h+2),12)
-        line((x+w+3),(y-4),(x+w+3),(y+h+3),10)
+        if time()-player.shieldTime > player.shieldTimeOut-4000 then
+            if time() % 40 < 5 then
+                drawShieldLines()
+            end
+        else
+            drawShieldLines()
+        end
     end
 end --drawShield
+function drawShieldLines()
+    local x = player.x
+    local y = player.y
+    local w = player.wpx
+    local h = player.hpx
+    --top
+    line((x),(y-2),(x+w+2),(y-2),10)
+    line((x),(y-3),(x+w+2),(y-3),12)
+    line((x),(y-4),(x+w+2),(y-4),10)
+    --bottom
+    line((x),(y+h+1),(x+w+2),(y+h+1),10)
+    line((x),(y+h+2),(x+w+2),(y+h+2),12)
+    line((x),(y+h+3),(x+w+2),(y+h+3),10)
+    --front
+    line((x+w+1),(y-2),(x+w+1),(y+h+1),10)
+    line((x+w+2),(y-3),(x+w+2),(y+h+2),12)
+    line((x+w+3),(y-4),(x+w+3),(y+h+3),10)
+end --drawShieldLines
 function drawPickups()
     for i, pickup in ipairs(pickups) do
-        spr(pickup.spriteId,pickup.x,pickup.y,0,1,0,0,pickup.w,pickup.h)
+        if time()-pickup.timeDropped > pickup.timeOut-2000 then
+            if time() % 40 < 5 then
+                spr(pickup.spriteId,pickup.x,pickup.y,0,1,0,0,pickup.w,pickup.h)
+            end
+        else
+            spr(pickup.spriteId,pickup.x,pickup.y,0,1,0,0,pickup.w,pickup.h)
+        end
     end
 end --drawPickups
+function drawHud()
+    if GameState.level > 90 then
+        if GameState.level == 92 then
+            print('VUT.CZ | Petr Michalek | 2023',60,10,7)
+            line(3,20,237,20,6)
+            print('Press "X" to start',12,25,6)
+        elseif GameState.level == 93 then
+            print('Select a difficulty to exit.',50,5,6)
+        elseif GameState.level == 94 and (time()-GameState.timeStarted) > 2000 then
+            print('Press "X" to continue.',70,110,6)
+        end
+        if GameState.level==99 then
+            rect(30,80,190,40,0)
+            print('Press "X" to exit.',75,90,6)
+            local scoreX = getScoreCentered()
+            print('Score: '..GameState.score,scoreX,15,6,true)
+        end
+    else
+        rect(0,0,240,8,0)
+        for i=1,GameState.lives do
+            spr(304,30+i*(10),-1,0)
+        end
+        for i=1,(GameState.maxLives - GameState.lives) do 
+            spr(320,(40+(10*GameState.maxLives))-i*(10),-1,0)
+        end
+        print('Lives: ',8,1,7)
+        print("Score: "..GameState.score, 100,1,7,false,1,true)
+        --line(0,5,240,5,6)
+    end
+    
+end --drawHud
+
+function getScoreCentered()
+    local digits = string.len(tostring(GameState.score))
+    local scoreLength = (digits+6)*6
+    local scoreX = 120-math.floor(scoreLength/2)
+    return scoreX
+end --getScoreCentered
 
 function printPlayer()
     print("x: "..player.x,0,0,7)
@@ -575,14 +667,26 @@ function draw()
     drawProjectiles()
     drawShield()
     drawPickups()
+    drawHud()
 end
 
-init()
+init(1)
 spawnEnemy(235,72,1)
+stTm = time()
 function TIC()
     cls()
     update()
     animate()
     draw()
+    if time()-stTm>5000 and time()-stTm<5030 then 
+        spawnEnemy(235,72,1)
+        trace("SPAWNING")
+    end
+    if time()-stTm>17000 and time()-stTm<17030 then 
+        spawnEnemy(235,72,1)
+        trace("SPAWNING")
+    end
+    trace("shield: ")
+    trace(player.shield)
 end
 
