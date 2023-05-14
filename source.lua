@@ -51,13 +51,16 @@ function init(level)
         accelerationY = 1,
         invincibilityCounter = 0,
         lastShot = 0,
+        lastMine = 0,
         projectileType = {1},
         engine = 256,
         pickup = 0,
         pickupTime = 0,
+        pickupTimeOut = 15000,
         shield = false,
         shieldTime = 0,
         shieldTimeOut = 15000,
+        mines = 1,
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -120,32 +123,45 @@ function init(level)
         wpx = 13,
         hpx = 16,
         flip = 0,
+        canShoot = true,
+        hasMines = false,
+        shotOffset = 0,
         animationTiming = 0,
         alive=true,
         beingDestroyed = "no",
         lastShot = -5000,
+        shotTimeout = 1000,
         hitPoints = 10,
+        followPlayer = true,
     }
     enemy2 = table.copy(enemy1)
     enemy2.spriteId = 482
     enemy2.defSprite = 482
     enemy2.wpx = 13
     enemy2.hpx = 14
+    enemy2.speedx = -2
+    enemy2.hitPoints = 5
+    enemy2.canShoot = false
     enemy3 = table.copy(enemy1)
     enemy3.spriteId = 484
     enemy3.defSprite = 484
     enemy3.wpx = 12
     enemy3.hpx = 15
+    enemy3.speedx = 0
+    enemy3.hitPoints = 5
     enemy4 = table.copy(enemy1)
     enemy4.spriteId = 486
     enemy4.defSprite = 486
     enemy4.wpx = 16
     enemy4.hpx = 16
+    enemy4.shotTimeout = 300
     enemy5 = table.copy(enemy1)
     enemy5.spriteId = 488
     enemy5.defSprite = 488
     enemy5.wpx = 16
     enemy5.hpx = 13
+    enemy5.canShoot = false
+    enemy5.hasMines = true
     enemy6 = table.copy(enemy1)
     enemy6.spriteId = 460
     enemy6.defSprite = 460
@@ -153,12 +169,15 @@ function init(level)
     enemy6.h = 4
     enemy6.wpx = 32
     enemy6.hpx = 32
+    enemy5.canShoot = false
+    enemy6.followPlayer = false
+    enemy6.hasMines = true
 
     enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
     enemies={}
 
-    enemyProjectile1 = {
+    enemyProjectile = {
         spriteId=287,
         x=0,
         y=0,
@@ -171,11 +190,33 @@ function init(level)
         destroy=false,
         flip=false,
     }
-    enemyProjectile2 = table.copy(enemyProjectile1)
-    enemyProjectile2.spriteId = 123
-    enemyProjectileBlueprints = {enemyProjectile1, enemyProjectile2}
 
     enemyProjectiles={}
+
+    enemyMine = {
+        defSprite=507,
+        spriteId=507,
+        x=0,
+        y=0,
+        speedx=0,
+        speedy=0,
+        w=1,
+        h=1,
+        wpx = 8,
+        hpx = 8,
+        destroy=false,
+        flip=false,
+        guided = false,
+        beingDeployed = "yes",
+        animationTiming = 0,
+    }
+
+    enemyMines = {}
+
+    playerMine = table.copy(enemyMine)
+    playerMine.defSprite = 506
+    playerMine.spriteId = 506
+    playerMines = {}
 
     pickup1 = {
         spriteId = 260,
@@ -194,10 +235,14 @@ function init(level)
     pickup2.spriteId = 261
     pickup2.wpx = 7
     pickup2.hpx = 7
-    pickupBlueprints = {pickup1, pickup2}
+    pickup3 = table.copy(pickup1)
+    pickup3.type = 3
+    pickup3.spriteId = 262
+    pickupBlueprints = {pickup1, pickup2, pickup3}
     pickups={}
 
 end
+
 
 -- COMMON FUNCTIONS
 function interpolate(from,to,step)
@@ -242,9 +287,10 @@ function collisionObject(obj1,obj2)
 
 end --collisionObject
 
+
 --FUNCTIONS
 function shootPlayer(types)
-    if btn(6) and time() - player.lastShot > 100 then
+    if btn(7) and time() - player.lastShot > 100 then
         for i = 1, #types do
             local type = types[i]
             local newProjectile = table.copy(projectileBlueprint[type])
@@ -256,6 +302,15 @@ function shootPlayer(types)
         player.lastShot = time()
     end
 end --shootPlayer
+function shootMinePlayer()
+    if btn(6) and time() - player.lastMine > 2000 then
+        local newMine = table.copy(playerMine)
+        newMine.x = player.x + player.w * 8 + 2
+        newMine.y = player.y + 2
+        table.insert(playerMines, newMine)
+        player.lastMine = time()
+    end
+end --shootMinePlayer
 function harmPlayer()
     if not player.invincibility and not player.shield then
         -- player damage
@@ -282,7 +337,10 @@ function dropPickup(x,y,type)
     newPickup.timeDropped = time()
     table.insert(pickups, newPickup)
 end --dropPickup
-
+function shootEnemy()
+end --shootEnemy
+function shootMineEnemy()
+end --shootMineEnemy
 
 --UPDATE
 function updatePlayer()
@@ -342,18 +400,25 @@ function updatePlayer()
     end
 
     -- player pickups
-    if player.pickup == 2 then
-        player.projectileType = {1, 2, 3}
-    else
-        player.projectileType = {1}
-    end
+    -- shield
     if player.pickup == 1 then
         player.shield = true
         player.shieldTime = time()
         player.pickup = 0
     end
-    if time()-player.pickupTime > 15000 then player.pickup = 0 end
     if time()-player.shieldTime > player.shieldTimeOut then player.shield = false end
+    -- tripleshot
+    if player.pickup == 2 then
+        player.projectileType = {1, 2, 3}
+    else
+        player.projectileType = {1}
+    end
+    if time()-player.pickupTime > player.pickupTimeOut then player.pickup = 0 end
+    -- mines
+    if player.pickup == 3 then
+        player.mines = 5
+        player.pickup = 0
+    end
 end --updatePlayer
 function updateProjectiles()
     for i, projectile in ipairs(projectiles) do
@@ -381,9 +446,6 @@ function updateProjectiles()
             if collisionObject(projectile,enemy) then
                 projectile.destroy=true
                 enemies[i].hitPoints = enemies[i].hitPoints - 1
-                if enemies[i].hitPoints <= 0 then 
-                    enemies[i].alive = false
-                end
                 --enemy.spriteId = enemy.spriteId + 32
                 break
             end
@@ -425,11 +487,14 @@ function updateEnemies()
             end
         end ]]
 
-        --damage player
+        -- damage player
         if collisionObject(player,enemy) then
             harmPlayer()
         end
-
+        -- evaluate health
+        if enemies[i].hitPoints <= 0 then 
+            enemies[i].alive = false
+        end
         --kill enemy
         if not enemy.alive then
             if enemy.beingDestroyed == "no" then
@@ -437,7 +502,7 @@ function updateEnemies()
             end
 
             if enemy.beingDestroyed == "done" then
-                dropPickup(enemy.x,enemy.y,1)
+                dropPickup(enemy.x,enemy.y,math.ceil(randomBetween(0,2)))
                 table.remove(enemies, i)
             elseif enemy.beingDestroyed == "yes" then
                 animateDeadEnemies(i)
@@ -455,7 +520,7 @@ function updatePickups()
     for i, pickup in ipairs(pickups) do
         if collisionObject(player, pickup) then
             player.pickup = pickup.type
-            player.pickupTime = time()
+            if pickup.type == 2 then player.pickupTime = time() end
             table.remove(pickups, i)
         end
         if time() - pickup.timeDropped > pickup.timeOut then
@@ -463,6 +528,35 @@ function updatePickups()
         end
     end
 end --updatePickups
+function updateEnemyMines()
+    for i, mine in ipairs(enemyMines) do
+        if collisionObject(player, mine) and mine.armed then
+            hurtPlayer()
+            table.remove(enemyMines, i)
+        end
+    end
+end --updateEnemyMines
+function updatePlayerMines()
+    for i, mine in ipairs(playerMines) do
+        if mine.beingDeployed == "yes" then 
+            animateMine(playerMines, i)
+        elseif mine.beingDeployed == "done" then
+            for y, enemy in ipairs(enemies) do
+                if collisionObject(enemy, mine) then
+                    enemy.hitPoints = enemy.hitPoints - 5
+                    mine.defSprite=507
+                    mine.spriteId=411
+                    mine.beingDeployed = "destroying"
+                    break
+                end
+            end
+        elseif mine.beingDeployed == "destroying" then
+            animateMineExplosion(playerMines, i)
+        elseif mine.beingDeployed == "destroyed" then
+            table.remove(playerMines, i)
+        end
+    end
+end --updatePlayerMines
 
 
 --ANIMATE
@@ -515,6 +609,27 @@ function animateDeadEnemies(i)
         end
     end
 end --animateDeadEnemies
+function animateMine(mines, i)
+    if (time()/1000)-mines[i].animationTiming>0.1 then
+        mines[i].animationTiming=(time()/1000)
+        mines[i].spriteId=mines[i].spriteId-16
+        if mines[i].spriteId<=(mines[i].defSprite-96) then
+            mines[i].spriteId = (mines[i].defSprite-96)
+            mines[i].beingDeployed = "done"
+        end
+    end
+end --animateMine
+function animateMineExplosion(mines, i)
+    if (time()/1000)-mines[i].animationTiming>0.1 then
+        mines[i].animationTiming=(time()/1000)
+        mines[i].spriteId=mines[i].spriteId-16
+        if mines[i].spriteId<=(mines[i].defSprite-192) then
+            mines[i].spriteId = (mines[i].defSprite-192)
+            mines[i].beingDeployed = "destroyed"
+        end
+    end
+end --animateMineExplosion
+
 
 --DRAW
 function drawPlayer()
@@ -549,6 +664,15 @@ function drawProjectiles()
     for i, projectile in ipairs(projectiles) do
         spr(projectile.spriteId,projectile.x,projectile.y,0,1,0,0,projectile.w,projectile.h)
     end
+    for i, mine in ipairs(playerMines) do
+        spr(mine.spriteId,mine.x,mine.y,0,1,0,0,mine.w,mine.h)
+    end
+    for i, mine in ipairs(enemyMines) do
+        spr(mine.spriteId,mine.x,mine.y,0,1,0,0,mine.w,mine.h)
+    end
+    for i, projectile in ipairs(enemyProjectiles) do
+        spr(projectile.spriteId,projectile.x,projectile.y,0,1,0,0,projectile.w,projectile.h)
+    end 
 end --drawProjectiles
 function drawShield()
     if player.shield then
@@ -594,7 +718,7 @@ end --drawPickups
 function drawHud()
     if GameState.level > 90 then
         if GameState.level == 92 then
-            print('VUT.CZ | Petr Michalek | 2023',60,10,7)
+            print('VUT.CZ | Petr Michalek | 2023',60,10,12)
             line(3,20,237,20,6)
             print('Press "X" to start',12,25,6)
         elseif GameState.level == 93 then
@@ -616,8 +740,8 @@ function drawHud()
         for i=1,(GameState.maxLives - GameState.lives) do 
             spr(320,(40+(10*GameState.maxLives))-i*(10),-1,0)
         end
-        print('Lives: ',8,1,7)
-        print("Score: "..GameState.score, 100,1,7,false,1,true)
+        print('Lives: ',8,1,12)
+        print("Score: "..GameState.score, 100,1,12,false,1,true)
         --line(0,5,240,5,6)
     end
     
@@ -647,18 +771,22 @@ end
 
 function update()
     shootPlayer(player.projectileType)
+    shootMinePlayer()
     updatePlayer()
     updateProjectiles()
     updateEnemyProjectiles()
     updateEnemies()
     updatePickups()
-end
+    updateEnemyMines()
+    updatePlayerMines()
+end --update
 
 function animate()
     animateFarStars()
     animateNearStars()
     animatePlayer()
-end
+end --animate
+
 function draw()
     drawFarStars()
     drawNearStars()
@@ -668,7 +796,7 @@ function draw()
     drawShield()
     drawPickups()
     drawHud()
-end
+end --draw
 
 init(1)
 spawnEnemy(235,72,1)
@@ -679,14 +807,12 @@ function TIC()
     animate()
     draw()
     if time()-stTm>5000 and time()-stTm<5030 then 
-        spawnEnemy(235,72,1)
+        spawnEnemy(235,72,2)
         trace("SPAWNING")
     end
     if time()-stTm>17000 and time()-stTm<17030 then 
-        spawnEnemy(235,72,1)
+        spawnEnemy(235,72,2)
         trace("SPAWNING")
     end
-    trace("shield: ")
-    trace(player.shield)
-end
+end --TIC
 
