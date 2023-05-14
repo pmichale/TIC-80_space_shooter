@@ -95,9 +95,10 @@ function init(level)
         speedy=0,
         w=1,
         h=1,
-        wpx = 3,
-        hpx = 1,
+        wpx = 4,
+        hpx = 3,
         timing=0,
+        timeOut = 2000,
         destroy=false,
         bind=0
     }
@@ -127,13 +128,13 @@ function init(level)
         canShoot = true,
         hasMines = false,
         guidedMines = false,
-        shotOffsetX = 0,
-        shotOffsetY = 0,
+        shotOffsetX = 2,
+        shotOffsetY = -6,
         animationTiming = 0,
         alive=true,
         beingDestroyed = "no",
         lastShot = 0,
-        shotTimeout = 1000,
+        shotTimeout = 500,
         hitPoints = 10,
         followPlayer = true,
     }
@@ -158,6 +159,8 @@ function init(level)
     enemy4.wpx = 16
     enemy4.hpx = 16
     enemy4.shotTimeout = 300
+    enemy4.shotOffsetX = -4
+    enemy4.shotOffsetY = -13
     enemy5 = table.copy(enemy1)
     enemy5.spriteId = 488
     enemy5.defSprite = 488
@@ -182,15 +185,17 @@ function init(level)
     enemies={}
 
     enemyProjectile = {
-        spriteId=287,
+        spriteId=270,
         x=0,
         y=0,
-        speedx=2,
+        speedx=-2.5,
         speedy=0,
         w=1,
         h=1,
-        wpx = 3,
+        wpx = 5,
         hpx = 3,
+        timing = 0,
+        timeOut = 3000,
         destroy=false,
         flip=false,
     }
@@ -219,7 +224,7 @@ function init(level)
     enemyMines = {}
 
     playerMine = table.copy(enemyMine)
-    playerMine.speedx = 0.25
+    playerMine.speedx = 1
     playerMine.defSprite = 506
     playerMine.spriteId = 506
     playerMines = {}
@@ -234,7 +239,7 @@ function init(level)
         wpx = 8,
         hpx = 8,
         timeDropped = 0,
-        timeOut = 4000,
+        timeOut = 6000,
     }
     pickup2 = table.copy(pickup1)
     pickup2.type = 2
@@ -301,7 +306,8 @@ function shootPlayer(types)
             local type = types[i]
             local newProjectile = table.copy(projectileBlueprint[type])
             newProjectile.x = player.x + player.w * 8 - 4
-            newProjectile.y = player.y + 6
+            newProjectile.y = player.y + 5
+            newProjectile.timing = time()
             if types[i] == 2 then newProjectile.y=player.y + 4 end
             table.insert(projectiles, newProjectile)
         end
@@ -344,7 +350,15 @@ function dropPickup(x,y,type)
     newPickup.timeDropped = time()
     table.insert(pickups, newPickup)
 end --dropPickup
-function shootEnemy()
+function shootEnemy(enemy)
+    if enemy.canShoot and time() - enemy.lastShot > enemy.shotTimeout then
+        local newEnemyProjectile = table.copy(enemyProjectile)
+        newEnemyProjectile.x = enemy.x - enemy.shotOffsetX
+        newEnemyProjectile.y = enemy.y - enemy.shotOffsetY
+        newEnemyProjectile.timing = time()
+        table.insert(enemyProjectiles, newEnemyProjectile)
+        enemy.lastShot = time()
+    end
 end --shootEnemy
 function shootMineEnemy(enemy)
     if enemy.hasMines and time() - enemy.lastShot > enemy.shotTimeout then
@@ -436,8 +450,9 @@ function updatePlayer()
     end
 end --updatePlayer
 function updateProjectiles()
+    local projectilesToRemove = {}
     for i, projectile in ipairs(projectiles) do
-        if (time()-player.lastShot)>800 then
+        if (time()-projectile.timing)>projectile.timeOut then
             projectile.destroy=true
         end
         --[[
@@ -469,12 +484,35 @@ function updateProjectiles()
         projectile.y = projectile.y+projectile.speedy
         --destroy projectiles
         if projectile.destroy then
-            table.remove(projectiles, i)
-            break
+            table.insert(projectilesToRemove, i)
         end
+    end
+    for i = #projectilesToRemove, 1, -1 do
+        table.remove(projectiles, projectilesToRemove[i])
     end
 end --updateProjectiles
 function updateEnemyProjectiles()
+    local projectilesToRemove = {}
+    for i, projectile in ipairs(enemyProjectiles) do
+        if (time()-projectile.timing)>projectile.timeOut then
+            projectile.destroy=true
+        end
+        --check collision player
+        if collisionObject(projectile,player) then
+            projectile.destroy=true
+            harmPlayer()
+        end
+        --update position
+        projectile.x = projectile.x+projectile.speedx
+        projectile.y = projectile.y+projectile.speedy
+        --destroy projectiles
+        if projectile.destroy then
+            table.insert(projectilesToRemove, i)
+        end
+    end
+    for i = #projectilesToRemove, 1, -1 do
+        table.remove(enemyProjectiles, projectilesToRemove[i])
+    end
 end --updateEnemyProjectiles
 function updateEnemies()
     for i, enemy in ipairs(enemies) do
@@ -523,6 +561,7 @@ function updateEnemies()
             end
         end
         -- shoot
+        shootEnemy(enemy)
         shootMineEnemy(enemy)
 
         enemy.x = enemy.x+enemy.speedx
@@ -848,7 +887,10 @@ function draw()
 end --draw
 
 init(1)
-spawnEnemy(235,72,5)
+--spawnEnemy(235,72,5)
+spawnEnemy(220,22,1)
+spawnEnemy(220,72,3)
+spawnEnemy(220,122,4)
 stTm = time()
 function TIC()
     cls()
@@ -856,10 +898,10 @@ function TIC()
     animate()
     draw()
     if time()-stTm>5000 and time()-stTm<5030 then 
-        spawnEnemy(235,72,5)
+        --spawnEnemy(235,72,5)
     end
     if time()-stTm>17000 and time()-stTm<17030 then 
-        spawnEnemy(235,72,2)
+        --spawnEnemy(235,72,2)
     end
 end --TIC
 
