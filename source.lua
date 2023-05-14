@@ -116,7 +116,8 @@ function init(level)
         defSprite=480,
         x=0,
         y=0,
-        speedx=-1,
+        --speedx=-1,
+        speedx=0,
         speedy=0,
         w=2,
         h=2,
@@ -164,7 +165,6 @@ function init(level)
     enemy5.hpx = 13
     enemy5.canShoot = false
     enemy5.hasMines = true
-    enemy5.guidedMines = true
     enemy6 = table.copy(enemy1)
     enemy6.spriteId = 460
     enemy6.defSprite = 460
@@ -175,6 +175,7 @@ function init(level)
     enemy5.canShoot = false
     enemy6.followPlayer = false
     enemy6.hasMines = true
+    enemy6.guidedMines = true
 
     enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
@@ -207,7 +208,8 @@ function init(level)
         h=1,
         wpx = 8,
         hpx = 8,
-        destroy = false,
+        timeDeployed = 0,
+        timeOut = 17000,
         flip = false,
         guided = false,
         beingDeployed = "yes",
@@ -217,6 +219,7 @@ function init(level)
     enemyMines = {}
 
     playerMine = table.copy(enemyMine)
+    playerMine.speedx = 0.25
     playerMine.defSprite = 506
     playerMine.spriteId = 506
     playerMines = {}
@@ -543,6 +546,9 @@ function updatePickups()
 end --updatePickups
 function updateEnemyMines()
     for i, mine in ipairs(enemyMines) do
+        if time()-mine.timeDeployed > mine.timeOut then
+            mine.beingDeployed = "destroying"
+        end
         if mine.beingDeployed == "yes" then 
             animateMine(enemyMines, i)
         elseif mine.beingDeployed == "done" then
@@ -573,6 +579,11 @@ function updateEnemyMines()
 end --updateEnemyMines
 function updatePlayerMines()
     for i, mine in ipairs(playerMines) do
+        if time()-mine.timeDeployed > mine.timeOut and mine.beingDeployed == "done" then
+            mine.defSprite=507
+            mine.spriteId=411
+            mine.beingDeployed = "destroying"
+        end
         if mine.beingDeployed == "yes" then 
             animateMine(playerMines, i)
         elseif mine.beingDeployed == "done" then
@@ -585,6 +596,8 @@ function updatePlayerMines()
                     break
                 end
             end
+            -- update position
+            mine.x = mine.x+mine.speedx
         elseif mine.beingDeployed == "destroying" then
             animateMineExplosion(playerMines, i)
         elseif mine.beingDeployed == "destroyed" then
@@ -651,6 +664,7 @@ function animateMine(mines, i)
         if mines[i].spriteId<=(mines[i].defSprite-96) then
             mines[i].spriteId = (mines[i].defSprite-96)
             mines[i].beingDeployed = "done"
+            mines[i].timeDeployed = time()
         end
     end
 end --animateMine
