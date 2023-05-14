@@ -60,7 +60,7 @@ function init(level)
         shield = false,
         shieldTime = 0,
         shieldTimeOut = 15000,
-        mines = 1,
+        mines = 10,
     }
     moveCoeficientX = 0.3
     moveCoeficientY = 0.3
@@ -125,11 +125,13 @@ function init(level)
         flip = 0,
         canShoot = true,
         hasMines = false,
-        shotOffset = 0,
+        guidedMines = false,
+        shotOffsetX = 0,
+        shotOffsetY = 0,
         animationTiming = 0,
         alive=true,
         beingDestroyed = "no",
-        lastShot = -5000,
+        lastShot = 0,
         shotTimeout = 1000,
         hitPoints = 10,
         followPlayer = true,
@@ -162,6 +164,7 @@ function init(level)
     enemy5.hpx = 13
     enemy5.canShoot = false
     enemy5.hasMines = true
+    enemy5.guidedMines = true
     enemy6 = table.copy(enemy1)
     enemy6.spriteId = 460
     enemy6.defSprite = 460
@@ -204,8 +207,8 @@ function init(level)
         h=1,
         wpx = 8,
         hpx = 8,
-        destroy=false,
-        flip=false,
+        destroy = false,
+        flip = false,
         guided = false,
         beingDeployed = "yes",
         animationTiming = 0,
@@ -303,12 +306,13 @@ function shootPlayer(types)
     end
 end --shootPlayer
 function shootMinePlayer()
-    if btn(6) and time() - player.lastMine > 2000 then
+    if btn(6) and time() - player.lastMine > 2000 and player.mines > 0 then
         local newMine = table.copy(playerMine)
         newMine.x = player.x + player.w * 8 + 2
         newMine.y = player.y + 2
         table.insert(playerMines, newMine)
         player.lastMine = time()
+        player.mines = player.mines - 1
     end
 end --shootMinePlayer
 function harmPlayer()
@@ -339,7 +343,15 @@ function dropPickup(x,y,type)
 end --dropPickup
 function shootEnemy()
 end --shootEnemy
-function shootMineEnemy()
+function shootMineEnemy(enemy)
+    if enemy.hasMines and time() - enemy.lastShot > enemy.shotTimeout then
+        local newMine = table.copy(enemyMine)
+        newMine.x = enemy.x + enemy.w * 8 + 2
+        newMine.y = enemy.y + 2
+        if enemy.guidedMines then newMine.guided = true end
+        table.insert(enemyMines, newMine)
+        enemy.lastShot = time()
+    end
 end --shootMineEnemy
 
 --UPDATE
@@ -446,7 +458,6 @@ function updateProjectiles()
             if collisionObject(projectile,enemy) then
                 projectile.destroy=true
                 enemies[i].hitPoints = enemies[i].hitPoints - 1
-                --enemy.spriteId = enemy.spriteId + 32
                 break
             end
         end
@@ -455,8 +466,8 @@ function updateProjectiles()
         projectile.y = projectile.y+projectile.speedy
         --destroy projectiles
         if projectile.destroy then
-            table.remove(projectiles, i)  -- Remove the projectile at index 'i'
-            break  -- Exit the loop after removing the projectile
+            table.remove(projectiles, i)
+            break
         end
     end
 end --updateProjectiles
@@ -508,6 +519,8 @@ function updateEnemies()
                 animateDeadEnemies(i)
             end
         end
+        -- shoot
+        shootMineEnemy(enemy)
 
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
@@ -530,8 +543,30 @@ function updatePickups()
 end --updatePickups
 function updateEnemyMines()
     for i, mine in ipairs(enemyMines) do
-        if collisionObject(player, mine) and mine.armed then
-            hurtPlayer()
+        if mine.beingDeployed == "yes" then 
+            animateMine(enemyMines, i)
+        elseif mine.beingDeployed == "done" then
+            -- collisions
+            if collisionObject(player, mine) then
+                harmPlayer()
+                mine.beingDeployed = "destroying"
+                break
+            end
+            -- control guided
+            if mine.guided and mine.x > player.x then
+                mine.speedx = -2
+                if math.abs(mine.y - player.y) > 2 then
+                    mine.speedy = -0.7 * sign(mine.y - player.y)
+                else
+                    mine.speedy = 0
+                end
+            end
+            -- update position
+            mine.x = mine.x+mine.speedx
+            mine.y = mine.y+mine.speedy
+        elseif mine.beingDeployed == "destroying" then
+            animateMineExplosion(enemyMines, i)
+        elseif mine.beingDeployed == "destroyed" then
             table.remove(enemyMines, i)
         end
     end
@@ -799,7 +834,7 @@ function draw()
 end --draw
 
 init(1)
-spawnEnemy(235,72,1)
+spawnEnemy(235,72,5)
 stTm = time()
 function TIC()
     cls()
@@ -807,12 +842,10 @@ function TIC()
     animate()
     draw()
     if time()-stTm>5000 and time()-stTm<5030 then 
-        spawnEnemy(235,72,2)
-        trace("SPAWNING")
+        spawnEnemy(235,72,5)
     end
     if time()-stTm>17000 and time()-stTm<17030 then 
         spawnEnemy(235,72,2)
-        trace("SPAWNING")
     end
 end --TIC
 
