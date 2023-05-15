@@ -118,8 +118,8 @@ function init(level)
         defSprite=480,
         x=0,
         y=0,
-        --speedx=-1,
-        speedx=0,
+        speedx=-1,
+        --speedx=0,
         speedy=0,
         w=2,
         h=2,
@@ -185,15 +185,20 @@ function init(level)
     enemy6.h = 4
     enemy6.wpx = 32
     enemy6.hpx = 32
-    enemy5.canShoot = false
+    enemy6.canShoot = false
     enemy6.followPlayer = false
     enemy6.hasMines = true
     enemy6.guidedMines = true
     enemy6.score = 4000
+    enemy6.deployed = "yes"
+    enemy6.shotTimeout = 2000
+    enemy6.shotOffsetX = -12
+    enemy6.shotOffsetY = 0
 
     enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
     enemies={}
+    enemies6 = {}
 
     enemyProjectile = {
         spriteId=270,
@@ -349,11 +354,23 @@ function harmPlayer()
     end
 end --harmPlayer
 function spawnEnemy(x,y,type)
-    newEnemy = table.copy(enemyBlueprints[type])
-    newEnemy.x = x
-    newEnemy.y = y
-    table.insert(enemies, newEnemy)
+    if type == 6 then
+        spawnEnemy6(x,y)
+    else
+        newEnemy = table.copy(enemyBlueprints[type])
+        newEnemy.x = x
+        newEnemy.y = y
+        table.insert(enemies, newEnemy)
+    end
 end --spawnEnemy
+function spawnEnemy6(x,y)
+    newEnemy = table.copy(enemyBlueprints[6])
+    newEnemy.x = x + newEnemy.wpx + 2
+    newEnemy.y = y 
+    newEnemy.targetX = x
+    table.insert(enemies6, newEnemy)
+    table.insert(enemies, newEnemy)
+end --spawnEnemy6
 function dropPickup(x,y,type)
     newPickup = table.copy(pickupBlueprints[type])
     newPickup.x = x
@@ -374,8 +391,8 @@ end --shootEnemy
 function shootMineEnemy(enemy)
     if enemy.hasMines and time() - enemy.lastShot > enemy.shotTimeout then
         local newMine = table.copy(enemyMine)
-        newMine.x = enemy.x + enemy.w * 8 + 2
-        newMine.y = enemy.y + 2
+        newMine.x = enemy.x - enemy.shotOffsetX
+        newMine.y = enemy.y - enemy.shotOffsetY
         if enemy.guidedMines then newMine.guided = true end
         table.insert(enemyMines, newMine)
         enemy.lastShot = time()
@@ -433,9 +450,16 @@ function updatePlayer()
         end
     end]]
 
+    
     -- MOVEMENT CHANGE
     player.x = player.x+player.speedX
     player.y = player.y+player.speedY
+    
+    --screen limits
+    if player.x <= -5 then player.x = -5 end
+    if player.x >= 215 then player.x = 215 end
+    if player.y <= -1 then player.y = -1 end
+    if player.y >= 125 then player.y = 125 end
 
     -- player invincibility
     if (time() - player.invincibilityCounter) > GameState.invincibilityDuration and player.invincibility then
@@ -529,6 +553,7 @@ function updateEnemyProjectiles()
     end
 end --updateEnemyProjectiles
 function updateEnemies()
+    updateEnemies6()
     for i, enemy in ipairs(enemies) do
         -- check map collisions
         --[[
@@ -581,11 +606,24 @@ function updateEnemies()
 
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
-        if enemy.y < -127 then enemy.y = -126 end -- update to remove them off screen
-        if enemy.y > 112 then enemy.y = 112 end -- update to remove them off screen
+        if enemy.x < -10 then enemy.alive = false end
 
     end
 end --updateEnemies
+function updateEnemies6()
+    for i, enemy in ipairs(enemies6) do
+        --deployment
+        if enemy.deployed == "yes" then
+            enemy.speedx = -1
+        end
+        if math.abs(enemy.targetX - enemy.x) < 1 then
+            enemy.deployed = "done"
+            enemy.speedx = 0
+        end
+        enemy.x = enemy.x+enemy.speedx
+        enemy.y = enemy.y+enemy.speedy
+    end
+end --updateEnemies6
 function updatePickups()
     for i, pickup in ipairs(pickups) do
         if collisionObject(player, pickup) then
@@ -600,7 +638,7 @@ function updatePickups()
 end --updatePickups
 function updateEnemyMines()
     for i, mine in ipairs(enemyMines) do
-        if time()-mine.timeDeployed > mine.timeOut then
+        if time()-mine.timeDeployed > mine.timeOut and mine.beingDeployed == "done" then
             mine.beingDeployed = "destroying"
         end
         if mine.beingDeployed == "yes" then 
@@ -613,13 +651,18 @@ function updateEnemyMines()
                 break
             end
             -- control guided
-            if mine.guided and mine.x > player.x then
-                mine.speedx = -2
-                if math.abs(mine.y - player.y) > 2 then
-                    mine.speedy = -0.7 * sign(mine.y - player.y)
+            if mine.guided and mine.x > player.x-10 then
+                if time()-mine.timeDeployed > 300 then
+                    mine.speedx = -1.5
+                    if math.abs(mine.y - player.y) > 2 then
+                        mine.speedy = -0.8 * sign(mine.y - player.y)
+                    else
+                        mine.speedy = 0
+                    end
                 else
-                    mine.speedy = 0
+                    mine.speedy = -1
                 end
+                
             end
             -- update position
             mine.x = mine.x+mine.speedx
@@ -754,6 +797,9 @@ function drawEnemies()
     for i, enemy in ipairs(enemies) do
         spr(enemy.spriteId, enemy.x, enemy.y, 0, 1, enemy.flip, 0, enemy.w, enemy.h)
     end
+    for i, enemy in ipairs(enemies6) do
+        spr(enemy.spriteId, enemy.x, enemy.y, 0, 1, enemy.flip, 0, enemy.w, enemy.h)
+    end
 end --drawEnemies
 function drawFarStars()
     local cmr = (farStars.sx%8)-8
@@ -871,6 +917,14 @@ function printStars()
     print("farStars.sx: "..farStars.sx,0,30,7)
 end
 
+function printDebug()
+    print("#enemyMines: "..#enemyMines,0,0,7)
+    if #enemyMines >= 1 then
+    print("enemyMines[1]: "..enemyMines[1].beingDeployed,0,10,7) end
+    --print("nearStars.sx: "..nearStars.sx,0,20,7)
+    --print("farStars.sx: "..farStars.sx,0,30,7)
+end
+
 
 function update()
     shootPlayer(player.projectileType)
@@ -898,20 +952,22 @@ function draw()
     drawProjectiles()
     drawShield()
     drawPickups()
-    drawHud()
+    --drawHud()
 end --draw
 
 init(1)
 --spawnEnemy(235,72,5)
-spawnEnemy(220,22,1)
-spawnEnemy(220,72,3)
-spawnEnemy(220,122,4)
+spawnEnemy(210,72,6)
+--spawnEnemy(220,22,1)
+--spawnEnemy(220,72,3)
+--spawnEnemy(220,122,4)
 stTm = time()
 function TIC()
     cls()
     update()
     animate()
     draw()
+    --printDebug()
     if time()-stTm>5000 and time()-stTm<5030 then 
         --spawnEnemy(235,72,5)
     end
