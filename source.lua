@@ -194,6 +194,7 @@ function init(level)
     enemy6.shotTimeout = 2000
     enemy6.shotOffsetX = -12
     enemy6.shotOffsetY = 0
+    enemy6.hitPoints = 125
 
     enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
@@ -369,7 +370,6 @@ function spawnEnemy6(x,y)
     newEnemy.y = y 
     newEnemy.targetX = x
     table.insert(enemies6, newEnemy)
-    table.insert(enemies, newEnemy)
 end --spawnEnemy6
 function dropPickup(x,y,type)
     newPickup = table.copy(pickupBlueprints[type])
@@ -514,7 +514,12 @@ function updateProjectiles()
             if collisionObject(projectile,enemy) then
                 projectile.destroy=true
                 enemies[i].hitPoints = enemies[i].hitPoints - 1
-                break
+            end
+        end
+        for i, enemy in ipairs(enemies6) do
+            if collisionObject(projectile,enemy) then
+                projectile.destroy=true
+                enemies6[i].hitPoints = enemies6[i].hitPoints - 1
             end
         end
         --update position
@@ -580,6 +585,7 @@ function updateEnemies()
 
         -- damage player
         if collisionObject(player,enemy) then
+            enemy.hitPoints = 0
             harmPlayer()
         end
         -- evaluate health
@@ -616,12 +622,35 @@ function updateEnemies6()
         if enemy.deployed == "yes" then
             enemy.speedx = -1
         end
-        if math.abs(enemy.targetX - enemy.x) < 1 then
+        if enemy.targetX - enemy.x > 0 then
             enemy.deployed = "done"
             enemy.speedx = 0
         end
+        if not enemy.alive then 
+            enemy.speedx = 1
+            if enemy.x > 270 then
+                table.remove(enemies6, i)
+            end
+        end
+        -- damage player
+        if collisionObject(player,enemy) then
+            harmPlayer()
+        end
+        -- evaluate health
+        if enemy.hitPoints < 75 then
+            enemy.spriteId = 396
+        end
+        if enemy.hitPoints < 25 then
+            enemy.spriteId = 332
+        end
+        if enemy.hitPoints <= 0 then 
+            enemy.alive = false
+        end
+
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
+        
+        shootMineEnemy(enemy)
     end
 end --updateEnemies6
 function updatePickups()
@@ -686,7 +715,16 @@ function updatePlayerMines()
         elseif mine.beingDeployed == "done" then
             for y, enemy in ipairs(enemies) do
                 if collisionObject(enemy, mine) then
-                    enemy.hitPoints = enemy.hitPoints - 5
+                    enemy.hitPoints = enemy.hitPoints - 50
+                    mine.defSprite=507
+                    mine.spriteId=411
+                    mine.beingDeployed = "destroying"
+                    break
+                end
+            end
+            for y, enemy in ipairs(enemies6) do
+                if collisionObject(enemy, mine) then
+                    enemy.hitPoints = enemy.hitPoints - 50
                     mine.defSprite=507
                     mine.spriteId=411
                     mine.beingDeployed = "destroying"
@@ -918,9 +956,9 @@ function printStars()
 end
 
 function printDebug()
-    print("#enemyMines: "..#enemyMines,0,0,7)
-    if #enemyMines >= 1 then
-    print("enemyMines[1]: "..enemyMines[1].beingDeployed,0,10,7) end
+    --print("#enemyMines: "..#enemyMines,0,0,7)
+    --if #enemies6 >= 1 then
+    --print("enemies6[1].hitPoints: "..enemies6[1].hitPoints,0,10,7) end
     --print("nearStars.sx: "..nearStars.sx,0,20,7)
     --print("farStars.sx: "..farStars.sx,0,30,7)
 end
@@ -967,7 +1005,7 @@ function TIC()
     update()
     animate()
     draw()
-    --printDebug()
+    printDebug()
     if time()-stTm>5000 and time()-stTm<5030 then 
         --spawnEnemy(235,72,5)
     end
