@@ -113,6 +113,7 @@ function init(level)
 
     -- INIT ENEMIES
     enemy1 = {
+        type = 1,
         spriteId=480,
         defSprite=480,
         x=0,
@@ -137,8 +138,10 @@ function init(level)
         shotTimeout = 500,
         hitPoints = 10,
         followPlayer = true,
+        score = 500,
     }
     enemy2 = table.copy(enemy1)
+    enemy2.type = 2
     enemy2.spriteId = 482
     enemy2.defSprite = 482
     enemy2.wpx = 13
@@ -146,7 +149,9 @@ function init(level)
     enemy2.speedx = -2
     enemy2.hitPoints = 5
     enemy2.canShoot = false
+    enemy2.score = 300
     enemy3 = table.copy(enemy1)
+    enemy3.type = 3
     enemy3.spriteId = 484
     enemy3.defSprite = 484
     enemy3.wpx = 12
@@ -154,6 +159,7 @@ function init(level)
     enemy3.speedx = 0
     enemy3.hitPoints = 5
     enemy4 = table.copy(enemy1)
+    enemy4.type = 4
     enemy4.spriteId = 486
     enemy4.defSprite = 486
     enemy4.wpx = 16
@@ -161,14 +167,18 @@ function init(level)
     enemy4.shotTimeout = 300
     enemy4.shotOffsetX = -4
     enemy4.shotOffsetY = -13
+    enemy4.score = 1000
     enemy5 = table.copy(enemy1)
+    enemy5.type = 5
     enemy5.spriteId = 488
     enemy5.defSprite = 488
     enemy5.wpx = 16
     enemy5.hpx = 13
     enemy5.canShoot = false
     enemy5.hasMines = true
+    enemy5.score = 800
     enemy6 = table.copy(enemy1)
+    enemy6.type = 6
     enemy6.spriteId = 460
     enemy6.defSprite = 460
     enemy6.w = 4
@@ -179,6 +189,7 @@ function init(level)
     enemy6.followPlayer = false
     enemy6.hasMines = true
     enemy6.guidedMines = true
+    enemy6.score = 4000
 
     enemyBlueprints = {enemy1,enemy2,enemy3,enemy4,enemy5,enemy6}
 
@@ -370,6 +381,9 @@ function shootMineEnemy(enemy)
         enemy.lastShot = time()
     end
 end --shootMineEnemy
+function addScore(enemy)
+    GameState.score = GameState.score + enemy.score
+end --addScore
 
 --UPDATE
 function updatePlayer()
@@ -554,6 +568,7 @@ function updateEnemies()
             end
 
             if enemy.beingDestroyed == "done" then
+                addScore(enemy)
                 dropPickup(enemy.x,enemy.y,math.ceil(randomBetween(0,2)))
                 table.remove(enemies, i)
             elseif enemy.beingDestroyed == "yes" then
