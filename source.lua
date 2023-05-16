@@ -272,7 +272,7 @@ function init(level)
     enemyMines = {}
 
     playerMine = table.copy(enemyMine)
-    playerMine.speedx = 1
+    playerMine.speedx = 2
     playerMine.defSprite = 506
     playerMine.spriteId = 506
     playerMines = {}
@@ -349,17 +349,13 @@ function shouldDropPickup(probability)
     return math.random() <= probability
 end
 function continueLevel()
-    trace("lvl"..GameState.level)
-    trace("tim"..(time()-GameState.timeStarted))
     if GameState.level==91 and (time()-GameState.timeStarted) > 2000 then
         if btnp(5) then
             init(1)
         end
     elseif GameState.level==100 and (time()-GameState.timeStarted) > 2000 then
-        trace("continue")
         if btnp(5) then
             init(91)
-            trace("init")
         end
     end
 end --continueLevel
@@ -950,6 +946,9 @@ function drawPickups()
     end
 end --drawPickups
 function drawHud()
+    if GameState.level == 1 and time()-GameState.timeStarted < 5000 then
+        drawTutorial()
+    end
     if GameState.level > 90 then
         if GameState.level == 91 then
             print('VUT.CZ | Petr Michalek | 2023',60,10,12)
@@ -957,10 +956,7 @@ function drawHud()
             if (time()-GameState.timeStarted) > 2000 then
                 print('Press "X" to continue.',70,110,13)
             end
-        elseif GameState.level == 93 then
-            print('Select a difficulty to exit.',50,5,6)
-        elseif GameState.level == 94 and (time()-GameState.timeStarted) > 2000 then
-            print('Press "X" to continue.',70,110,6)
+            spr(265,48,8,-1,1,0,0,1,1)
         elseif GameState.level==100 then
             if (time()-GameState.timeStarted) > 2000 then
                 print('Press "X" to exit.',75,90,6)
@@ -968,12 +964,6 @@ function drawHud()
             local scoreX = getScoreCentered()
             print('Score: '..GameState.score,scoreX,15,6,true)
         end
-        if GameState.level==99 then
-            rect(30,80,190,40,0)
-            print('Press "X" to exit.',75,90,6)
-            local scoreX = getScoreCentered()
-            print('Score: '..GameState.score,scoreX,15,6,true)
-        end 
     else
         rect(0,0,240,8,0)
         for i=1,player.lives do
@@ -990,8 +980,9 @@ function drawHud()
     
 end --drawHud
 function drawTutorial()
-
-end
+    print('S = shoot normal',player.x,player.y-8,13)
+    print('A = shoot mines',player.x,player.y+player.hpx+4,13)
+end --drawTutorial
 
 function getScoreCentered()
     local digits = string.len(tostring(GameState.score))
