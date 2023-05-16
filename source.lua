@@ -118,8 +118,8 @@ function init(level)
         defSprite=480,
         x=0,
         y=0,
-        speedx=-1,
-        --speedx=0,
+        --speedx=-1,
+        speedx=0,
         speedy=0,
         w=2,
         h=2,
@@ -314,7 +314,8 @@ function collisionObject(obj1,obj2)
     end
 
 end --collisionObject
-
+function continueLevel()
+end
 
 --FUNCTIONS
 function shootPlayer(types)
@@ -334,7 +335,7 @@ end --shootPlayer
 function shootMinePlayer()
     if btn(6) and time() - player.lastMine > 2000 and player.mines > 0 then
         local newMine = table.copy(playerMine)
-        newMine.x = player.x + player.w * 8 + 2
+        newMine.x = player.x + player.w * 8 + 5
         newMine.y = player.y + 2
         table.insert(playerMines, newMine)
         player.lastMine = time()
@@ -349,9 +350,6 @@ function harmPlayer()
         player.invincibility = true
         player.x = player.startx
         player.y = player.starty
-        if GameState.lives == 0 then
-            init(92)
-        end
     end
 end --harmPlayer
 function spawnEnemy(x,y,type)
@@ -458,7 +456,7 @@ function updatePlayer()
     --screen limits
     if player.x <= -5 then player.x = -5 end
     if player.x >= 215 then player.x = 215 end
-    if player.y <= -1 then player.y = -1 end
+    if player.y <= 5 then player.y = 5 end
     if player.y >= 125 then player.y = 125 end
 
     -- player invincibility
@@ -587,10 +585,12 @@ function updateEnemies()
         if collisionObject(player,enemy) then
             enemy.hitPoints = 0
             harmPlayer()
+            if GameState.lives == 0 then break end
         end
         -- evaluate health
-        if enemies[i].hitPoints <= 0 then 
-            enemies[i].alive = false
+        trace(#enemies)
+        if enemy.hitPoints <= 0 then 
+            enemy.alive = false
         end
         --kill enemy
         if not enemy.alive then
@@ -635,6 +635,7 @@ function updateEnemies6()
         -- damage player
         if collisionObject(player,enemy) then
             harmPlayer()
+            if GameState.lives == 0 then break end
         end
         -- evaluate health
         if enemy.hitPoints < 75 then
@@ -929,6 +930,7 @@ function drawHud()
         end
         print('Lives: ',8,1,12)
         print("Score: "..GameState.score, 100,1,12,false,1,true)
+        print("Mines: "..player.mines, 200,1,12,false,1,true)
         --line(0,5,240,5,6)
     end
     
@@ -965,15 +967,19 @@ end
 
 
 function update()
-    shootPlayer(player.projectileType)
-    shootMinePlayer()
-    updatePlayer()
-    updateProjectiles()
-    updateEnemyProjectiles()
-    updateEnemies()
-    updatePickups()
-    updateEnemyMines()
-    updatePlayerMines()
+    if GameState.level > 90 then 
+        continueLevel()
+    else
+        shootPlayer(player.projectileType)
+        shootMinePlayer()
+        updatePlayer()
+        updateProjectiles()
+        updateEnemyProjectiles()
+        updateEnemies()
+        updatePickups()
+        updateEnemyMines()
+        updatePlayerMines()
+    end
 end --update
 
 function animate()
@@ -990,15 +996,17 @@ function draw()
     drawProjectiles()
     drawShield()
     drawPickups()
-    --drawHud()
+    drawHud()
 end --draw
 
 init(1)
---spawnEnemy(235,72,5)
-spawnEnemy(210,72,6)
---spawnEnemy(220,22,1)
---spawnEnemy(220,72,3)
---spawnEnemy(220,122,4)
+if GameState.level == 1 then
+    --spawnEnemy(235,72,5)
+    spawnEnemy(210,72,1)
+    --spawnEnemy(220,22,1)
+    --spawnEnemy(220,72,3)
+    --spawnEnemy(220,122,4)
+end
 stTm = time()
 function TIC()
     cls()
@@ -1006,11 +1014,14 @@ function TIC()
     animate()
     draw()
     printDebug()
-    if time()-stTm>5000 and time()-stTm<5030 then 
-        --spawnEnemy(235,72,5)
+    if time()-stTm>5000 and time()-stTm<5030 and GameState.level == 1 then 
+        spawnEnemy(235,72,5)
     end
-    if time()-stTm>17000 and time()-stTm<17030 then 
-        --spawnEnemy(235,72,2)
+    if time()-stTm>17000 and time()-stTm<17030 and GameState.level == 1 then 
+        spawnEnemy(235,72,2)
+    end
+    if GameState.lives == 0 then
+        init(92)
     end
 end --TIC
 
