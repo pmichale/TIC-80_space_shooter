@@ -20,7 +20,6 @@ GameState = {
     difficulty = "easy",
     character = "bub",
     maxLives = 3,
-    lives = 3,
     invincibilityDuration = 2000,
     score = 0,
     timeStarted = 0,
@@ -37,6 +36,7 @@ function init(level)
 
     player = {
         spriteId = 257,
+        lives = 1,
         x = 5,
         y = 72,
         startx = 5,
@@ -62,7 +62,7 @@ function init(level)
         shieldTimeOut = 15000,
         mines = 10,
     }
-    moveCoeficientX = 0.3
+    moveCoeficientX = 0.4
     moveCoeficientY = 0.3
 
     nearStars = {
@@ -118,8 +118,8 @@ function init(level)
         defSprite=480,
         x=0,
         y=0,
-        --speedx=-1,
-        speedx=0,
+        speedx=-1,
+        --speedx=0,
         speedy=0,
         w=2,
         h=2,
@@ -135,11 +135,18 @@ function init(level)
         alive=true,
         beingDestroyed = "no",
         lastShot = 0,
-        shotTimeout = 500,
-        hitPoints = 10,
+        shotTimeout = 0,
+        burstTiming = 100,
+        burstTimeout = 1200,
+        burstCount = 1,
+        burstCounter = 1,
+        hitPoints = 8,
         followPlayer = true,
+        followMultiplier = 0.3,
         score = 500,
+        timeAlive = 0,
     }
+
     enemy2 = table.copy(enemy1)
     enemy2.type = 2
     enemy2.spriteId = 482
@@ -147,9 +154,12 @@ function init(level)
     enemy2.wpx = 13
     enemy2.hpx = 14
     enemy2.speedx = -2
+    enemy2.followPlayer = true
+    enemy2.followMultiplier = 0.3
     enemy2.hitPoints = 5
     enemy2.canShoot = false
     enemy2.score = 300
+
     enemy3 = table.copy(enemy1)
     enemy3.type = 3
     enemy3.spriteId = 484
@@ -157,26 +167,47 @@ function init(level)
     enemy3.wpx = 12
     enemy3.hpx = 15
     enemy3.speedx = 0
-    enemy3.hitPoints = 5
+    enemy3.followPlayer = true
+    enemy3.followMultiplier = 0.5
+    enemy3.hitPoints = 15
+    enemy3.shotTimeout = 100
+    enemy3.burstTiming = 100
+    enemy3.burstTimeout = 1000
+    enemy3.burstCount = 2
+    enemy3.burstCounter = 2
+
     enemy4 = table.copy(enemy1)
     enemy4.type = 4
     enemy4.spriteId = 486
     enemy4.defSprite = 486
     enemy4.wpx = 16
     enemy4.hpx = 16
+    enemy4.followMultiplier = 0.6
     enemy4.shotTimeout = 300
     enemy4.shotOffsetX = -4
     enemy4.shotOffsetY = -13
+    enemy4.hitPoints = 15
     enemy4.score = 1000
+    enemy4.shotTimeout = 100
+    enemy4.burstTiming = 100
+    enemy4.burstTimeout = 800
+    enemy4.burstCount = 3
+    enemy4.burstCounter = 3
+    
     enemy5 = table.copy(enemy1)
     enemy5.type = 5
     enemy5.spriteId = 488
     enemy5.defSprite = 488
     enemy5.wpx = 16
     enemy5.hpx = 13
+    enemy5.speedx = -1
+    enemy5.followPlayer = false
+    enemy5.hitPoints = 15
     enemy5.canShoot = false
     enemy5.hasMines = true
+    enemy5.shotTimeout = 1200
     enemy5.score = 800
+
     enemy6 = table.copy(enemy1)
     enemy6.type = 6
     enemy6.spriteId = 460
@@ -314,8 +345,24 @@ function collisionObject(obj1,obj2)
     end
 
 end --collisionObject
-function continueLevel()
+function shouldDropPickup(probability)
+    return math.random() <= probability
 end
+function continueLevel()
+    trace("lvl"..GameState.level)
+    trace("tim"..(time()-GameState.timeStarted))
+    if GameState.level==91 and (time()-GameState.timeStarted) > 2000 then
+        if btnp(5) then
+            init(1)
+        end
+    elseif GameState.level==100 and (time()-GameState.timeStarted) > 2000 then
+        trace("continue")
+        if btnp(5) then
+            init(91)
+            trace("init")
+        end
+    end
+end --continueLevel
 
 --FUNCTIONS
 function shootPlayer(types)
@@ -345,7 +392,7 @@ end --shootMinePlayer
 function harmPlayer()
     if not player.invincibility and not player.shield then
         -- player damage
-        GameState.lives = GameState.lives - 1
+        player.lives = player.lives - 1
         player.invincibilityCounter = time()
         player.invincibility = true
         player.x = player.startx
@@ -378,12 +425,20 @@ function dropPickup(x,y,type)
 end --dropPickup
 function shootEnemy(enemy)
     if enemy.canShoot and time() - enemy.lastShot > enemy.shotTimeout then
+        if enemy.burstCounter == enemy.burstCount then
+            enemy.shotTimeout = enemy.burstTiming
+        end
         local newEnemyProjectile = table.copy(enemyProjectile)
         newEnemyProjectile.x = enemy.x - enemy.shotOffsetX
         newEnemyProjectile.y = enemy.y - enemy.shotOffsetY
         newEnemyProjectile.timing = time()
         table.insert(enemyProjectiles, newEnemyProjectile)
         enemy.lastShot = time()
+        enemy.burstCounter = enemy.burstCounter - 1
+        if enemy.burstCounter == 0 then
+            enemy.burstCounter = enemy.burstCount
+            enemy.shotTimeout = enemy.burstTimeout
+        end
     end
 end --shootEnemy
 function shootMineEnemy(enemy)
@@ -558,37 +613,25 @@ end --updateEnemyProjectiles
 function updateEnemies()
     updateEnemies6()
     for i, enemy in ipairs(enemies) do
-        -- check map collisions
-        --[[
-        if enemy.speedy>0 then
-            if collisionMap(enemy,"down",0) then
-                enemy.speedy=0
-                enemy.y=math.floor((enemy.y + enemy.h) / 8) * 8
-            end
-        elseif enemy.speedy<0 then
-            if collisionMap(enemy,"up",1) then
-                enemy.speedy=0
+        if enemy.followPlayer and enemy.x > player.x-10 then
+            if math.abs(enemy.y - player.y) > 2 then
+                enemy.speedy = -(enemy.followMultiplier) * sign(enemy.y - player.y)
+            else
+                enemy.speedy = 0
             end
         end
-        -- left/rigth COLLISION
-        if enemy.speedx<0 then
-            if collisionMap(enemy,"left",1) then
-                enemy.speedx=-enemy.speedx
-            end
-        elseif enemy.speedx>0 then
-            if collisionMap(enemy,"right",1) then
-                enemy.speedx=-enemy.speedx
-            end
-        end ]]
-
+        if enemy.type == 4 and time()-enemy.timeAlive > 1000 then
+            enemy.followPlayer = false
+            enemy.speedx = 0
+            enemy.speedy = 0
+        end
         -- damage player
         if collisionObject(player,enemy) then
             enemy.hitPoints = 0
             harmPlayer()
-            if GameState.lives == 0 then break end
+            if player.lives == 0 then break end
         end
         -- evaluate health
-        trace(#enemies)
         if enemy.hitPoints <= 0 then 
             enemy.alive = false
         end
@@ -600,7 +643,12 @@ function updateEnemies()
 
             if enemy.beingDestroyed == "done" then
                 addScore(enemy)
-                dropPickup(enemy.x,enemy.y,math.ceil(randomBetween(0,2)))
+                local probability = 0.2
+                if enemy.type == 6 then probability = 1 end
+                if shouldDropPickup(0.1) then
+                    local pickupType = math.ceil(randomBetween(0, 3))
+                    dropPickup(enemy.x, enemy.y, pickupType)
+                end
                 table.remove(enemies, i)
             elseif enemy.beingDestroyed == "yes" then
                 animateDeadEnemies(i)
@@ -613,7 +661,6 @@ function updateEnemies()
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
         if enemy.x < -10 then enemy.alive = false end
-
     end
 end --updateEnemies
 function updateEnemies6()
@@ -635,7 +682,7 @@ function updateEnemies6()
         -- damage player
         if collisionObject(player,enemy) then
             harmPlayer()
-            if GameState.lives == 0 then break end
+            if player.lives == 0 then break end
         end
         -- evaluate health
         if enemy.hitPoints < 75 then
@@ -692,7 +739,6 @@ function updateEnemyMines()
                 else
                     mine.speedy = -1
                 end
-                
             end
             -- update position
             mine.x = mine.x+mine.speedx
@@ -905,27 +951,35 @@ function drawPickups()
 end --drawPickups
 function drawHud()
     if GameState.level > 90 then
-        if GameState.level == 92 then
+        if GameState.level == 91 then
             print('VUT.CZ | Petr Michalek | 2023',60,10,12)
-            line(3,20,237,20,6)
-            print('Press "X" to start',12,25,6)
+            line(3,20,237,20,13)
+            if (time()-GameState.timeStarted) > 2000 then
+                print('Press "X" to continue.',70,110,13)
+            end
         elseif GameState.level == 93 then
             print('Select a difficulty to exit.',50,5,6)
         elseif GameState.level == 94 and (time()-GameState.timeStarted) > 2000 then
             print('Press "X" to continue.',70,110,6)
+        elseif GameState.level==100 then
+            if (time()-GameState.timeStarted) > 2000 then
+                print('Press "X" to exit.',75,90,6)
+            end
+            local scoreX = getScoreCentered()
+            print('Score: '..GameState.score,scoreX,15,6,true)
         end
         if GameState.level==99 then
             rect(30,80,190,40,0)
             print('Press "X" to exit.',75,90,6)
             local scoreX = getScoreCentered()
             print('Score: '..GameState.score,scoreX,15,6,true)
-        end
+        end 
     else
         rect(0,0,240,8,0)
-        for i=1,GameState.lives do
+        for i=1,player.lives do
             spr(304,30+i*(10),-1,0)
         end
-        for i=1,(GameState.maxLives - GameState.lives) do 
+        for i=1,(GameState.maxLives - player.lives) do 
             spr(320,(40+(10*GameState.maxLives))-i*(10),-1,0)
         end
         print('Lives: ',8,1,12)
@@ -935,6 +989,9 @@ function drawHud()
     end
     
 end --drawHud
+function drawTutorial()
+
+end
 
 function getScoreCentered()
     local digits = string.len(tostring(GameState.score))
@@ -958,7 +1015,7 @@ function printStars()
 end
 
 function printDebug()
-    --print("#enemyMines: "..#enemyMines,0,0,7)
+    print("level: "..GameState.level,0,0,7)
     --if #enemies6 >= 1 then
     --print("enemies6[1].hitPoints: "..enemies6[1].hitPoints,0,10,7) end
     --print("nearStars.sx: "..nearStars.sx,0,20,7)
@@ -979,6 +1036,7 @@ function update()
         updatePickups()
         updateEnemyMines()
         updatePlayerMines()
+        animate()
     end
 end --update
 
@@ -989,29 +1047,31 @@ function animate()
 end --animate
 
 function draw()
+    
     drawFarStars()
     drawNearStars()
     drawEnemies()
-    drawPlayer()
+    if GameState.level < 90 then
+        drawPlayer()
+    end
     drawProjectiles()
     drawShield()
     drawPickups()
     drawHud()
 end --draw
 
-init(1)
+init(91)
 if GameState.level == 1 then
     --spawnEnemy(235,72,5)
-    spawnEnemy(210,72,1)
-    --spawnEnemy(220,22,1)
-    --spawnEnemy(220,72,3)
-    --spawnEnemy(220,122,4)
+    --spawnEnemy(210,72,1)
+    spawnEnemy(220,22,1)
+    spawnEnemy(220,72,3)
+    spawnEnemy(220,120,4)
 end
 stTm = time()
 function TIC()
     cls()
     update()
-    animate()
     draw()
     printDebug()
     if time()-stTm>5000 and time()-stTm<5030 and GameState.level == 1 then 
@@ -1020,8 +1080,8 @@ function TIC()
     if time()-stTm>17000 and time()-stTm<17030 and GameState.level == 1 then 
         spawnEnemy(235,72,2)
     end
-    if GameState.lives == 0 then
-        init(92)
+    if player.lives == 0 and GameState.level == 1 then
+        init(100)
     end
 end --TIC
 
