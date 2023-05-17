@@ -349,7 +349,7 @@ function shouldDropPickup(probability)
     return math.random() <= probability
 end
 function continueLevel()
-    if GameState.level==91 and (time()-GameState.timeStarted) > 2000 then
+    if GameState.level==91 then
         if btnp(5) then
             init(1)
         end
@@ -953,9 +953,7 @@ function drawHud()
         if GameState.level == 91 then
             print('VUT.CZ | Petr Michalek | 2023',60,10,12)
             line(3,20,237,20,13)
-            if (time()-GameState.timeStarted) > 2000 then
-                print('Press "X" to continue.',70,110,13)
-            end
+            print('Press "X" to continue.',70,110,13)
             spr(265,48,8,-1,1,0,0,1,1)
         elseif GameState.level==100 then
             if (time()-GameState.timeStarted) > 2000 then
