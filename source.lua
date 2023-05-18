@@ -24,6 +24,7 @@ GameState = {
     score = 0,
     timeStarted = 0,
     readyToAdvance = 0,
+    currentWave = 1,
 }
 
 function init(level)
@@ -133,6 +134,7 @@ function init(level)
         shotOffsetY = -6,
         animationTiming = 0,
         alive=true,
+        deployed = "yes",
         beingDestroyed = "no",
         lastShot = 0,
         shotTimeout = 0,
@@ -155,7 +157,7 @@ function init(level)
     enemy2.hpx = 14
     enemy2.speedx = -2
     enemy2.followPlayer = true
-    enemy2.followMultiplier = 0.3
+    enemy2.followMultiplier = 0.5
     enemy2.hitPoints = 5
     enemy2.canShoot = false
     enemy2.score = 300
@@ -170,6 +172,7 @@ function init(level)
     enemy3.followPlayer = true
     enemy3.followMultiplier = 0.5
     enemy3.hitPoints = 15
+    enemy3.score = 500
     enemy3.shotTimeout = 100
     enemy3.burstTiming = 100
     enemy3.burstTimeout = 1000
@@ -221,7 +224,6 @@ function init(level)
     enemy6.hasMines = true
     enemy6.guidedMines = true
     enemy6.score = 4000
-    enemy6.deployed = "yes"
     enemy6.shotTimeout = 2000
     enemy6.shotOffsetX = -12
     enemy6.shotOffsetY = 0
@@ -300,6 +302,23 @@ function init(level)
     pickupBlueprints = {pickup1, pickup2, pickup3}
     pickups={}
 
+    waveSpawns = {
+        --1
+        {
+            {type = 1, count = 1},
+            {type = 2, count = 1},
+            {type = 3, count = 1},
+            {type = 4, count = 1},
+            {type = 5, count = 1},
+        },
+        --2
+        {
+            {type = 2, count = 2},
+            {type = 4, count = 1},
+            {type = 1, count = 2}
+        },
+        --3
+    }
 end
 
 
@@ -389,10 +408,12 @@ function harmPlayer()
     if not player.invincibility and not player.shield then
         -- player damage
         player.lives = player.lives - 1
-        player.invincibilityCounter = time()
-        player.invincibility = true
-        player.x = player.startx
-        player.y = player.starty
+        if player.lives > 0 then 
+            player.invincibilityCounter = time()
+            player.invincibility = true
+            player.x = player.startx
+            player.y = player.starty
+        end
     end
 end --harmPlayer
 function spawnEnemy(x,y,type)
@@ -402,14 +423,18 @@ function spawnEnemy(x,y,type)
         newEnemy = table.copy(enemyBlueprints[type])
         newEnemy.x = x
         newEnemy.y = y
+        if type == 3 then
+            newEnemy.x = x
+            newEnemy.targetX = 240 - newEnemy.wpx - 8
+        end
         table.insert(enemies, newEnemy)
     end
 end --spawnEnemy
 function spawnEnemy6(x,y)
     newEnemy = table.copy(enemyBlueprints[6])
-    newEnemy.x = x + newEnemy.wpx + 2
     newEnemy.y = y 
-    newEnemy.targetX = x
+    newEnemy.x = x
+    newEnemy.targetX = 240 - newEnemy.wpx - 8
     table.insert(enemies6, newEnemy)
 end --spawnEnemy6
 function dropPickup(x,y,type)
@@ -450,6 +475,25 @@ end --shootMineEnemy
 function addScore(enemy)
     GameState.score = GameState.score + enemy.score
 end --addScore
+function spawnWave()
+    if GameState.currentWave <= #waveSpawns then
+        local wave = waveSpawns[GameState.currentWave]
+
+        for _, entry in ipairs(wave) do
+            local enemyType = entry.type
+            local enemiesToSpawn = entry.count
+
+            for i = 1, enemiesToSpawn do
+                local spawnX = 240
+                local spawnY = i*20
+
+                spawnEnemy(spawnX, spawnY, enemyType)
+            end
+        end
+
+        GameState.currentWave = GameState.currentWave + 1
+    end
+end --spawnWave
 
 --UPDATE
 function updatePlayer()
@@ -609,6 +653,17 @@ end --updateEnemyProjectiles
 function updateEnemies()
     updateEnemies6()
     for i, enemy in ipairs(enemies) do
+        --deployment enemy3
+        if enemy.type == 3 then
+            if enemy.deployed == "yes" then
+                enemy.speedx = -1
+            end
+            if enemy.targetX - enemy.x > 0 then
+                enemy.deployed = "done"
+                enemy.speedx = 0
+            end
+        end
+        --follow player
         if enemy.followPlayer and enemy.x > player.x-10 then
             if math.abs(enemy.y - player.y) > 2 then
                 enemy.speedy = -(enemy.followMultiplier) * sign(enemy.y - player.y)
@@ -616,7 +671,7 @@ function updateEnemies()
                 enemy.speedy = 0
             end
         end
-        if enemy.type == 4 and time()-enemy.timeAlive > 1000 then
+        if enemy.type == 4 and time()-enemy.timeAlive > 5000 then
             enemy.followPlayer = false
             enemy.speedx = 0
             enemy.speedy = 0
@@ -628,17 +683,18 @@ function updateEnemies()
             if player.lives == 0 then break end
         end
         -- evaluate health
-        if enemy.hitPoints <= 0 then 
+        if enemy.hitPoints <= 0 then
             enemy.alive = false
+            enemy.deployed = "killed"
         end
         --kill enemy
         if not enemy.alive then
             if enemy.beingDestroyed == "no" then
                 enemy.beingDestroyed = "yes"
+                if enemy.deployed == "killed" then addScore(enemy) end
             end
 
             if enemy.beingDestroyed == "done" then
-                addScore(enemy)
                 local probability = 0.2
                 if enemy.type == 6 then probability = 1 end
                 if shouldDropPickup(0.1) then
@@ -657,6 +713,9 @@ function updateEnemies()
         enemy.x = enemy.x+enemy.speedx
         enemy.y = enemy.y+enemy.speedy
         if enemy.x < -10 then enemy.alive = false end
+        --screen limits
+        if enemy.y <= 5 then enemy.y = 5 end
+        if enemy.y >= 125 then enemy.y = 125 end
     end
 end --updateEnemies
 function updateEnemies6()
@@ -946,6 +1005,7 @@ function drawPickups()
     end
 end --drawPickups
 function drawHud()
+    
     if GameState.level == 1 and time()-GameState.timeStarted < 5000 then
         drawTutorial()
     end
@@ -955,12 +1015,28 @@ function drawHud()
             line(3,20,237,20,13)
             print('Press "X" to continue.',70,110,13)
             spr(265,48,8,-1,1,0,0,1,1)
+            local xt = 70
+            local yt = 50
+            local clr = 8
+            print('SPACE',xt,yt,clr,false,4,false)
+            print('SPACE',xt-1,yt+1,clr+1,false,4,false)
+            print('SPACE',xt-2,yt+2,clr+2,false,4,false)
+            print('SPACE',xt-3,yt+3,clr+3,false,4,false)
         elseif GameState.level==100 then
             if (time()-GameState.timeStarted) > 2000 then
-                print('Press "X" to exit.',75,90,6)
+                rect(0,105,245,15,1)
+                print('Press "X" to exit.',75,110,12)
             end
             local scoreX = getScoreCentered()
-            print('Score: '..GameState.score,scoreX,15,6,true)
+            rect(0,10,245,15,1)
+            print('Score: '..GameState.score,scoreX,15,12,true)
+            local xt = 20
+            local yt = 55
+            local clr = 1
+            print('GAME OVER',xt,yt,clr,false,4,false)
+            print('GAME OVER',xt-1,yt+1,clr+1,false,4,false)
+            print('GAME OVER',xt-2,yt+2,clr+2,false,4,false)
+            print('GAME OVER',xt-3,yt+3,clr+3,false,4,false)
         end
     else
         rect(0,0,240,8,0)
@@ -1040,7 +1116,7 @@ function draw()
     drawFarStars()
     drawNearStars()
     drawEnemies()
-    if GameState.level < 90 then
+    if GameState.level < 90 or GameState.level == 100 then
         drawPlayer()
     end
     drawProjectiles()
@@ -1057,20 +1133,20 @@ if GameState.level == 1 then
     spawnEnemy(220,72,3)
     spawnEnemy(220,120,4)
 end
-stTm = time()
 function TIC()
+    stTm = GameState.timeStarted
     cls()
     update()
     draw()
-    printDebug()
-    if time()-stTm>5000 and time()-stTm<5030 and GameState.level == 1 then 
-        spawnEnemy(235,72,5)
+    --printDebug()
+    if time()-stTm>2000 and time()-stTm<2030 and GameState.level == 1 then 
+        spawnWave()
     end
     if time()-stTm>17000 and time()-stTm<17030 and GameState.level == 1 then 
-        spawnEnemy(235,72,2)
+        --spawnEnemy(235,72,2)
     end
-    if player.lives == 0 and GameState.level == 1 then
-        init(100)
+    if player.lives <= 0 and GameState.level == 1 then
+        GameState.level = 100
     end
 end --TIC
 
