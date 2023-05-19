@@ -1249,15 +1249,8 @@ function draw()
 end --draw
 
 init(91)
-if GameState.level == 1 then
-    --spawnEnemy(235,72,5)
-    --spawnEnemy(210,72,1)
-    spawnEnemy(220,22,1)
-    spawnEnemy(220,72,3)
-    spawnEnemy(220,120,4)
-end
+
 function TIC()
-    stTm = GameState.timeStarted
     cls()
     update()
     draw()
@@ -1267,4 +1260,3 @@ function TIC()
         GameState.level = 100
     end
 end --TIC
-
