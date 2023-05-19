@@ -2,7 +2,7 @@
 -- author:  Petr Michalek, pmich@email.cz
 -- desc:    Space shooter for TIC-80
 -- site:    tbc
--- version: 0.1
+-- version: 1.0
 -- script:  lua
 
     -- 0 up
@@ -19,16 +19,16 @@ function init(level)
     --GAMESTATE
     GameState = {
         level = 000,
-        pickupProbability = 0.2,
+        pickupProbability = 0.15,
         maxLives = 3,
         invincibilityDuration = 3000,
         score = 0,
         timeStarted = 0,
         currentWave = 1,
-        maxWaves = 6,
         waveEnd = 0,
         waveStarted = true,
         wavePause = 3000,
+        bossWaves = 0,
     }
     GameState.level = level
 
@@ -60,12 +60,12 @@ function init(level)
         shieldTimeOut = 20000,
         mines = 2,
     }
-    moveCoeficientX = 0.4
+    moveCoeficientX = 0.5
     moveCoeficientY = 0.3
 
     nearStars = {
         x = 0,
-        y = 0,
+        y = 17,
         sx = 0,
         sy = 0,
         sxdef = 0,
@@ -75,7 +75,7 @@ function init(level)
 
     farStars = {
         x = 0,
-        y = 17,
+        y = 0,
         sx = 0,
         sy = 0,
         sxdef = 0,
@@ -241,7 +241,7 @@ function init(level)
         wpx = 5,
         hpx = 3,
         timing = 0,
-        timeOut = 3000,
+        timeOut = 8000,
         destroy=false,
         flip=false,
     }
@@ -301,42 +301,130 @@ function init(level)
     pickupBlueprints = {pickup1, pickup2, pickup3, pickup4}
     pickups={}
 
-    waveOrder = {1,2,3}
     waveSpawns = {
-        --1
+        -- default X = 241
+        -- default Y = 72
         {
+            {type = 2, count = 1, y = 56},
+            {type = 2, count = 1, y = 24, follow = false},
+            {type = 2, count = 1, y = 104, follow = false},
+        },
+        {
+            {type = 1, count = 1, y = 24},
+            {type = 1, count = 1, y = 104},
+        },
+        {
+            {type = 2, count = 1, y = 24},
+            {type = 3, count = 1, y = 64},
+            {type = 2, count = 1, x = 361, y = 104},
+        },
+        {
+            {type = 3, count = 1, y = 24, follow = false},
+            {type = 5, count = 1, y = 64},
+            {type = 3, count = 1, y = 104, follow = false},
+        },
+        {
+            {type = 2, count = 1, y = 24},
+            {type = 4, count = 1, y = 56},
+            {type = 2, count = 1, x = 361, y = 104},
+        },
+        {
+            {type = 1, count = 1, y = 24},
+            {type = 3, count = 1, y = 56},
+            {type = 1, count = 1, y = 104},
+        },
+        {
+            {type = 6, count = 1, y = 56},
+        },
+    }
+    randomWaveSpawns = {
+        -- default X = 241
+        -- default Y = 72
+        {
+            {type = 4, count = 1, y = 25},
+            {type = 2, count = 1, y = 48, follow = false},
+            {type = 2, count = 1, y = 68, follow = false},
+            {type = 2, count = 1, y = 88, follow = false},
+            {type = 2, count = 1, y = 108, follow = false},
+        },
+        {
+            {type = 3, count = 1, y = 8},
+            {type = 5, count = 1, y = 72},
+            {type = 2, count = 1, y = 108},
+            {type = 2, count = 1, x = 361, y = 108},
+        },
+        {
+            {type = 3, count = 1, y = 8},
+            {type = 1, count = 1, y = 28},
+            {type = 4, count = 1, y = 108},
+        },
+        {
+            {type = 3, count = 1, y = 8},
+            {type = 1, count = 1, y = 28},
+            {type = 2, count = 1, x = 361, y = 108},
+            {type = 2, count = 1, y = 48},
+        },
+        {
+            {type = 3, count = 1, y = 8},
+            {type = 1, count = 1, y = 28},
+            {type = 1, count = 1, y = 108},
+            {type = 2, count = 1, y = 48},
+        },
+        {
+            {type = 1, count = 1, y = 8, follow = false},
+            {type = 1, count = 1, x = 301, y = 28, follow = false},
+            {type = 1, count = 1, x = 361, y = 48, follow = false},
+            {type = 1, count = 1, x = 421, y = 68, follow = false},
+            {type = 1, count = 1, x = 481, y = 88, follow = false},
+            {type = 1, count = 1, x = 541, y = 108, follow = false},
+        },
+        {
+            {type = 2, count = 1, y = 8, follow = false},
+            {type = 2, count = 1, y = 28, follow = false},
+            {type = 2, count = 1, y = 48, follow = false},
+            {type = 2, count = 1, y = 68, follow = false},
+            {type = 2, count = 1, y = 88, follow = false},
+            {type = 2, count = 1, y = 108, follow = false},
+        },
+        {
+            {type = 2, count = 1, y = 30},
+            {type = 2, count = 1, x = 301, y = 60},
+            {type = 2, count = 1, x = 361, y = 90},
+            {type = 2, count = 1, x = 421, y = 90},
+            {type = 2, count = 1, x = 481, y = 90},
+        },
+        {
+            {type = 5, count = 1, y = 10},
+            {type = 5, count = 1, y = 120},
+            {type = 4, count = 1, x = 301, y = 60},
+        },
+        {   
             {type = 5, count = 1, y = 30},
             {type = 5, count = 1, x = 301, y = 60},
             {type = 5, count = 1, x = 361, y = 90},
         }, 
-        --2
+    }
+
+    bossSpawns = {
+        -- default X = 241
+        -- default Y = 72
         {
-            {type = 1, count = 1, y = 30},
-            {type = 3, count = 1, y = 60},
-            {type = 1, count = 1, y = 90},
-        },--[[
-        --3
-        {
-            {type = 2, count = 2},
-            {type = 4, count = 1},
-            {type = 1, count = 2}
+            {type = 6, count = 1, y = 56},
+            {type = 3, count = 1, y = 8, follow = false},
+            {type = 3, count = 1, y = 120, follow = false},
         },
-        --4
         {
-            {type = 2, count = 2},
-            {type = 4, count = 1},
-            {type = 1, count = 2}
+            {type = 6, count = 1, y = 56},
+            {type = 3, count = 1, y = 24, follow = false},
+            {type = 3, count = 1, y = 104, follow = false},
         },
-        --5
         {
-            {type = 2, count = 2},
-            {type = 4, count = 1},
-            {type = 1, count = 2}
+            {type = 6, count = 1, y = 56},
+            {type = 3, count = 1, y = 8, follow = false},
+            {type = 3, count = 1, y = 24, follow = false},
+            {type = 3, count = 1, y = 104, follow = false},
+            {type = 3, count = 1, y = 120, follow = false},
         },
-        --6
-        {
-            {type = 6, count = 1},
-        },]]
     }
 end
 
@@ -384,7 +472,9 @@ function collisionObject(obj1,obj2)
 
 end --collisionObject
 function shouldDropPickup(probability)
-    return math.random() <= probability
+    local randn = math.random()
+    --trace(randn)
+    return randn <= probability
 end --shouldDropPickup
 function continueLevel()
     if GameState.level==91 then
@@ -435,9 +525,9 @@ function harmPlayer()
         end
     end
 end --harmPlayer
-function spawnEnemy(x,y,type)
+function spawnEnemy(x, y, type, follow)
     if type == 6 then
-        spawnEnemy6(x,y)
+        spawnEnemy6(x, y)
     else
         newEnemy = table.copy(enemyBlueprints[type])
         newEnemy.x = x
@@ -445,6 +535,9 @@ function spawnEnemy(x,y,type)
         if type == 3 then
             newEnemy.x = x
             newEnemy.targetX = 240 - newEnemy.wpx - 8
+        end
+        if follow ~= nil then
+            newEnemy.followPlayer = follow
         end
         table.insert(enemies, newEnemy)
     end
@@ -498,21 +591,55 @@ function addScore(enemy)
     GameState.score = GameState.score + enemy.score
 end --addScore
 function spawnWave()
+    local wave
     if GameState.currentWave <= #waveSpawns then
-        local wave = waveSpawns[GameState.currentWave]
+        wave = waveSpawns[GameState.currentWave]
         if #enemies == 0 and time()-GameState.waveEnd > GameState.wavePause and not GameState.waveStarted then
             for n, row in ipairs(wave) do
                 local enemyType = row.type
                 local enemiesToSpawn = row.count
                 local spawnX = row.x or 241
                 local spawnY = row.y or 72
+                if row.follow ~= nil then
+                    follow = row.follow
+                else
+                    follow = nil
+                end
                 for i = 1, enemiesToSpawn do
-                    spawnEnemy(spawnX, spawnY, enemyType)
+                    spawnEnemy(spawnX, spawnY, enemyType, follow)
                 end
             end
             GameState.waveStarted = true
             GameState.currentWave = GameState.currentWave + 1
             if GameState.currentWave == 2 then GameState.wavePause = 3000 end
+        end
+    else
+        if #enemies == 0 and time()-GameState.waveEnd > GameState.wavePause and not GameState.waveStarted then
+            if GameState.currentWave % 7 == 0 then
+                GameState.bossWaves = GameState.bossWaves + 1
+                local bossIndex = (GameState.bossWaves - 1) % #bossSpawns + 1
+                trace("bossIndex: "..bossIndex)
+                wave = bossSpawns[bossIndex]
+            else
+                local randWave = math.ceil(randomBetween(0,#randomWaveSpawns))
+                wave = randomWaveSpawns[randWave]
+            end
+            for n, row in ipairs(wave) do
+                local enemyType = row.type
+                local enemiesToSpawn = row.count
+                local spawnX = row.x or 241
+                local spawnY = row.y or 72
+                if row.follow ~= nil then
+                    follow = row.follow
+                else
+                    follow = nil
+                end
+                for i = 1, enemiesToSpawn do
+                    spawnEnemy(spawnX, spawnY, enemyType, follow)
+                end
+            end
+            GameState.waveStarted = true
+            GameState.currentWave = GameState.currentWave + 1
         end
     end
 end --spawnWave
@@ -539,32 +666,6 @@ function updatePlayer()
     if btn(1) then
         player.speedY = player.speedY+player.accelerationY
     end
-
-
-    --[[
-    -- fall/jump COLLISION
-    if player.speedY>0 then
-        if collisionMap(player,"down",0) then
-            player.speedY=0
-            player.y=math.floor((player.y + player.h) / 8) * 8
-        end
-    elseif player.speedY<0 then
-        player.airborne=true
-        if collisionMap(player,"up",1) then
-            player.speedY=0
-        end
-    end
-    -- left/rigth COLLISION
-    if player.speedX<0 then
-        if collisionMap(player,"left",1) then
-            player.speedX=0
-        end
-    elseif player.speedX>0 then
-        if collisionMap(player,"right",1) then
-            player.speedX=0
-        end
-    end]]
-
     
     -- MOVEMENT CHANGE
     player.x = player.x+player.speedX
@@ -592,10 +693,8 @@ function updatePlayer()
     -- tripleshot
     if player.pickup == 2 then
         player.projectileType = {1, 2, 3}
-    else
-        player.projectileType = {1}
     end
-    if time()-player.pickupTime > player.pickupTimeOut then player.pickup = 0 end
+    if time()-player.pickupTime > player.pickupTimeOut then player.projectileType = {1} end
     -- mines
     if player.pickup == 3 then
         player.mines = 5
@@ -604,7 +703,7 @@ function updatePlayer()
     --health
     if player.pickup == 4 then
         player.lives = player.lives + 1
-        if GameState.maxLives < player.lives then GameState.maxLives = player.lives end
+        if GameState.maxLives < player.lives and GameState.maxLives <= 6 then GameState.maxLives = player.lives end
         player.pickup = 0
     end
 end --updatePlayer
@@ -738,13 +837,15 @@ function updateEnemies()
                     enemy.speedy = 0
                 end
             end
+            --enemy4
             if enemy.type == 4 then
-                if enemy.x < randomBetween(140,220) then
+                if enemy.x < randomBetween(140,220) and enemy.followPlayer then
                     enemy.followPlayer = false
                     enemy.speedx = 0
+                    enemy.speedy = -0.6
                 end
-                if enemy.y > 120 then enemy.speedy = -1 end
-                if enemy.y < 6 then enemy.speedy = 1 end
+                if enemy.y > 120 then enemy.speedy = -0.6 end
+                if enemy.y < 6 then enemy.speedy = 0.6 end
             end
             -- damage player
             if collisionObject(player,enemy) then
@@ -1135,8 +1236,8 @@ function animate()
 end --animate
 
 function draw()
-    drawFarStars()
     drawNearStars()
+    drawFarStars()
     drawEnemies()
     if GameState.level < 90 or GameState.level == 100 then
         drawPlayer()
