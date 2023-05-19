@@ -65,17 +65,17 @@ function init(level)
 
     nearStars = {
         x = 0,
-        y = 17,
+        y = 0,
         sx = 0,
         sy = 0,
         sxdef = 0,
         smoothing = 0.01,
-        scroll = 300,
+        scroll = 400,
     }
 
     farStars = {
         x = 0,
-        y = 0,
+        y = 17,
         sx = 0,
         sy = 0,
         sxdef = 0,
@@ -978,17 +978,17 @@ function animatePlayer()
         --default
         player.spriteId = 257
         player.engine = 256
-        nearStars.scroll = 300
+        nearStars.scroll = 400
     end
 
     if player.speedX > 0.1 then
         --fast
         player.engine = 272
-        nearStars.scroll = 400
+        nearStars.scroll = 600
     elseif player.speedX < -0.1 then
         --motor off
         player.engine = 288
-        nearStars.scroll = 200
+        nearStars.scroll = 300
     end
 
     
@@ -1236,8 +1236,8 @@ function animate()
 end --animate
 
 function draw()
-    drawNearStars()
     drawFarStars()
+    drawNearStars()
     drawEnemies()
     if GameState.level < 90 or GameState.level == 100 then
         drawPlayer()
