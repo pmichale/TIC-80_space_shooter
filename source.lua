@@ -1,7 +1,7 @@
 -- title:   Space
--- author:  Petr Michalek, pmich@email.cz
+-- author:  Petr Michalek, 192291@gmail.com
 -- desc:    Space shooter for TIC-80
--- site:    tbc
+-- site:    pmichale.itch.io/space [Password: "Space"]
 -- version: 1.0
 -- script:  lua
 
